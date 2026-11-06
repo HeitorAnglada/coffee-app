@@ -54,4 +54,29 @@ class DomainTest {
         assertEquals(GuidedProgress(2, null, null), guidedProgress(pours, 200))
         assertEquals(GuidedProgress(-1, 0, 5), guidedProgress(listOf(Pour(5, 10.0)), 0))
     }
+
+    @Test
+    fun `step codec keeps kinds and old format`() {
+        val steps = listOf(Pour(0, 100.0), Pour(20, 0.0, StepKind.STIR), Pour(40, 0.0, StepKind.FLIP), Pour(60, 0.0, StepKind.PRESS), Pour(90, 100.0, StepKind.DILUTE))
+        assertEquals(steps, PourCodec.decode(PourCodec.encode(steps)))
+        assertEquals("0@100.0;20@0.0@STIR", PourCodec.encode(steps.take(2)))
+        assertEquals(listOf(Pour(0, 45.0)), PourCodec.decode("0@45.0;5@1.0@NADA"))
+        assertEquals(200.0, steps.totalGrams(), 1e-9)
+        assertEquals(100.0, steps.cumulativeGramsAt(3), 1e-9)
+    }
+
+    @Test
+    fun `espresso style tip and speed`() {
+        assertEquals("normale", espressoStyle(18.0, 36.0))
+        assertEquals("ristretto", espressoStyle(18.0, 25.0))
+        assertEquals("lungo", espressoStyle(18.0, 54.0))
+        assertNull(espressoStyle(null, 36.0))
+        assertEquals(ShotSpeed.TOO_FAST, shotSpeed(18.0, 25, 30))
+        assertEquals(ShotSpeed.FAST, shotSpeed(22.0, 25, 30))
+        assertEquals(ShotSpeed.IN_WINDOW, shotSpeed(27.4, 25, 30))
+        assertEquals(ShotSpeed.SLOW, shotSpeed(33.0, 25, 30))
+        assertEquals(ShotSpeed.TOO_SLOW, shotSpeed(40.0, 25, 30))
+        assertEquals("Moagem no ponto", espressoTip(27.0, 25, 30).title)
+        assertEquals("27,4", formatShotSeconds(27.43))
+    }
 }

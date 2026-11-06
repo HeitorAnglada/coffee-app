@@ -7,10 +7,15 @@ import com.heitoranglada.coffeeapp.data.Brew
 import com.heitoranglada.coffeeapp.data.CoffeeRepository
 import com.heitoranglada.coffeeapp.data.Recipe
 import com.heitoranglada.coffeeapp.domain.BrewMethod
+import com.heitoranglada.coffeeapp.domain.Pour
+import com.heitoranglada.coffeeapp.domain.StepKind
 import com.heitoranglada.coffeeapp.domain.formatDuration
 import com.heitoranglada.coffeeapp.domain.formatNumber
 import com.heitoranglada.coffeeapp.ui.components.CoffeeForm
 import com.heitoranglada.coffeeapp.ui.components.PourInput
+import com.heitoranglada.coffeeapp.ui.components.windowMax
+import com.heitoranglada.coffeeapp.ui.components.windowMin
+import java.util.Calendar
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,8 +36,12 @@ data class BrewUiState(
     val recipe: Recipe? = null,
     /** Método escolhido antes de iniciar um preparo livre. */
     val method: BrewMethod = BrewMethod.V60,
-    /** Segundos em que a pessoa tocou "Novo despejo" (preparo livre). */
-    val pourMarks: List<Int> = emptyList(),
+    /** Etapas que a pessoa marcou no preparo livre (só o tempo e o tipo; as gramas vêm no fim). */
+    val marks: List<Pour> = emptyList(),
+    /** Espresso: tempo do shot com décimos. */
+    val shotSeconds: Double = 0.0,
+    /** Espresso: shots de hoje com o mesmo método, do mais antigo ao mais novo (calibragem). */
+    val todayShots: List<Brew> = emptyList(),
     val totalSeconds: Int = 0,
     val form: CoffeeForm = CoffeeForm(),
     val saveAsRecipe: Boolean = false,
@@ -41,6 +50,7 @@ data class BrewUiState(
     val savedBrewId: Long? = null,
 ) {
     val isGuided: Boolean get() = recipe != null
+    val currentMethod: BrewMethod get() = recipe?.method ?: method
 }
 
 /**
@@ -83,8 +93,8 @@ class BrewViewModel(private val repo: CoffeeRepository, private val recipeId: Lo
         _state.update {
             it.copy(
                 phase = BrewPhase.RUNNING,
-                // No preparo livre, o primeiro despejo começa junto com o timer.
-                pourMarks = if (it.isGuided) emptyList() else listOf(0),
+                // No preparo livre, o primeiro despejo começa junto com o timer (no espresso não há despejos).
+                marks = if (it.isGuided || it.currentMethod.isEspresso) emptyList() else listOf(Pour(0, 0.0)),
                 savedBrewId = null,
                 errors = emptyList(),
             )
@@ -99,15 +109,19 @@ class BrewViewModel(private val repo: CoffeeRepository, private val recipeId: Lo
     }
 
     /** Marca o início de um novo despejo (ignora toques duplos no mesmo segundo). */
-    fun markPour() {
+    fun markPour() = mark(StepKind.POUR)
+
+    /** Marca uma etapa do preparo livre (despejo, mexer, virar, prensar, diluir). */
+    fun mark(kind: StepKind) {
         val now = elapsedSeconds
         _state.update { s ->
-            if (s.pourMarks.lastOrNull() == now) s else s.copy(pourMarks = s.pourMarks + now)
+            val last = s.marks.lastOrNull()
+            if (last != null && last.startSeconds == now && last.kind == kind) s else s.copy(marks = s.marks + Pour(now, 0.0, kind))
         }
     }
 
     fun undoLastPour() = _state.update { s ->
-        if (s.pourMarks.size <= 1) s else s.copy(pourMarks = s.pourMarks.dropLast(1))
+        if (s.marks.size <= 1) s else s.copy(marks = s.marks.dropLast(1))
     }
 
     /** Para o timer e abre o formulário para completar e salvar o preparo. */
@@ -115,9 +129,13 @@ class BrewViewModel(private val repo: CoffeeRepository, private val recipeId: Lo
         tickJob?.cancel()
         _elapsedMs.value = SystemClock.elapsedRealtime() - startedAt
         val total = elapsedSeconds
+        val shot = _elapsedMs.value / 1000.0
         viewModelScope.launch {
             val s = _state.value
             val recipe = s.recipe
+            val method = s.currentMethod
+            val last = repo.getLatestBrew()
+            val lastSame = repo.getLatestBrew(method)
             val form = if (recipe != null) {
                 CoffeeForm(
                     name = recipe.name,
@@ -129,23 +147,44 @@ class BrewViewModel(private val repo: CoffeeRepository, private val recipeId: Lo
                     pours = recipe.pours.map(PourInput::from).ifEmpty { listOf(PourInput("0:00", "")) },
                     waterTempText = recipe.waterTempC?.toString().orEmpty(),
                     timeText = formatDuration(total),
+                    inverted = recipe.inverted,
+                    yieldText = recipe.yieldGrams?.let(::formatNumber).orEmpty(),
+                    windowMin = recipe.windowMin,
+                    windowMax = recipe.windowMax,
+                    preInfusionText = recipe.preInfusionSeconds?.toString().orEmpty(),
+                )
+            } else if (method.isEspresso) {
+                // Espresso livre: repete o último shot (dose, moagem, rendimento) para só ajustar.
+                val base = lastSame ?: last
+                val dose = lastSame?.doseGrams ?: 18.0
+                CoffeeForm(
+                    name = "Espresso – meu shot",
+                    method = method,
+                    coffee = base?.coffee.orEmpty(),
+                    grinder = base?.grinder.orEmpty(),
+                    grindSetting = lastSame?.grindSetting.orEmpty(),
+                    doseText = formatNumber(dose),
+                    yieldText = formatNumber(lastSame?.yieldGrams ?: (dose * 2)),
+                    pours = emptyList(),
+                    waterTempText = lastSame?.waterTempC?.toString().orEmpty(),
+                    timeText = formatDuration(total),
                 )
             } else {
                 // Preenche com o último preparo para poupar digitação (café, moedor, moagem, dose).
-                val last = repo.getLatestBrew()
                 CoffeeForm(
                     name = "${s.method.label} – preparo livre",
                     method = s.method,
                     coffee = last?.coffee.orEmpty(),
                     grinder = last?.grinder.orEmpty(),
                     grindSetting = last?.grindSetting.orEmpty(),
-                    doseText = last?.doseGrams?.let(::formatNumber).orEmpty(),
-                    pours = s.pourMarks.map { PourInput(formatDuration(it), "") }.ifEmpty { listOf(PourInput("0:00", "")) },
+                    doseText = (lastSame ?: last?.takeIf { !it.method.isEspresso })?.doseGrams?.let(::formatNumber).orEmpty(),
+                    pours = s.marks.map { PourInput(formatDuration(it.startSeconds), "", it.kind) }.ifEmpty { listOf(PourInput("0:00", "")) },
                     waterTempText = last?.waterTempC?.toString().orEmpty(),
                     timeText = formatDuration(total),
                 )
             }
-            _state.update { it.copy(phase = BrewPhase.REVIEW, totalSeconds = total, form = form) }
+            val todayShots = if (method.isEspresso) repo.brewsSince(startOfToday(), method) else emptyList()
+            _state.update { it.copy(phase = BrewPhase.REVIEW, totalSeconds = total, shotSeconds = shot, form = form, todayShots = todayShots) }
         }
     }
 
@@ -156,8 +195,10 @@ class BrewViewModel(private val repo: CoffeeRepository, private val recipeId: Lo
         _state.update {
             it.copy(
                 phase = BrewPhase.READY,
-                pourMarks = emptyList(),
+                marks = emptyList(),
                 totalSeconds = 0,
+                shotSeconds = 0.0,
+                todayShots = emptyList(),
                 form = CoffeeForm(),
                 saveAsRecipe = false,
                 errors = emptyList(),
@@ -192,6 +233,8 @@ class BrewViewModel(private val repo: CoffeeRepository, private val recipeId: Lo
             totalTimeSeconds = form.timeSeconds ?: s.totalSeconds,
             rating = form.rating,
             notes = form.notes.trim(),
+            yieldGrams = if (form.method.isEspresso) form.yieldGrams else null,
+            shotSeconds = if (form.method.isEspresso) s.shotSeconds.takeIf { it > 0 } else null,
         )
         viewModelScope.launch {
             val brewId = repo.saveBrew(brew)
@@ -206,8 +249,13 @@ class BrewViewModel(private val repo: CoffeeRepository, private val recipeId: Lo
                         doseGrams = brew.doseGrams,
                         pours = pours,
                         waterTempC = brew.waterTempC,
-                        targetTimeSeconds = brew.totalTimeSeconds.takeIf { it > 0 },
+                        targetTimeSeconds = if (form.method.isEspresso) null else brew.totalTimeSeconds.takeIf { it > 0 },
                         notes = brew.notes,
+                        inverted = form.inverted && form.method == BrewMethod.AEROPRESS,
+                        yieldGrams = brew.yieldGrams,
+                        windowMinSeconds = if (form.method.isEspresso) form.windowMin else null,
+                        windowMaxSeconds = if (form.method.isEspresso) form.windowMax else null,
+                        preInfusionSeconds = if (form.method.isEspresso) form.preInfusion else null,
                     ),
                 )
             }
@@ -218,3 +266,11 @@ class BrewViewModel(private val repo: CoffeeRepository, private val recipeId: Lo
     /** Chamado pela tela depois de navegar para o preparo salvo. */
     fun onSavedHandled() = reset()
 }
+
+/** Meia-noite de hoje, no fuso do aparelho. */
+fun startOfToday(): Long = Calendar.getInstance().apply {
+    set(Calendar.HOUR_OF_DAY, 0)
+    set(Calendar.MINUTE, 0)
+    set(Calendar.SECOND, 0)
+    set(Calendar.MILLISECOND, 0)
+}.timeInMillis
