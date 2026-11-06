@@ -5,6 +5,9 @@ on:
     branches: [ "**" ]
   pull_request:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -28,3 +31,17 @@ jobs:
         with:
           name: coffee-app-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+
+      # A cada push no master, publica uma versão em Releases com o arquivo Bloombrew.apk.
+      # O link do README (releases/latest/download/Bloombrew.apk) sempre aponta para a mais nova.
+      - name: Publicar versão para download
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk Bloombrew.apk
+          gh release create "build-${{ github.run_number }}" Bloombrew.apk \
+            --target "${{ github.sha }}" \
+            --title "Bloombrew · versão ${{ github.run_number }}" \
+            --notes "Baixe o arquivo Bloombrew.apk abaixo e abra no celular Android (8.0 ou mais novo)." \
+            --latest
