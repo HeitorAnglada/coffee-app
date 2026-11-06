@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ícone Bloombrew "kettle": traço verde coador com detalhe terracota -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path android:fillColor="#00000000" android:strokeColor="#2F4A40" android:strokeWidth="1.8"
+        android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M5,11.5h9.5v6.5a2.5,2.5 0 0,1 -2.5,2.5H7.5A2.5,2.5 0 0,1 5,18z" />
+    <path android:fillColor="#00000000" android:strokeColor="#2F4A40" android:strokeWidth="1.8"
+        android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M7.5,11.5a2.25,2.25 0 0,1 4.5,0" />
+    <path android:fillColor="#00000000" android:strokeColor="#2F4A40" android:strokeWidth="1.8"
+        android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M14.5,16c3,0 3.5,-6 6,-8" />
+    <path android:fillColor="#00000000" android:strokeColor="#2F4A40" android:strokeWidth="1.8"
+        android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M5,13.5H4a1.5,1.5 0 0,1 0,-3h1" />
+    <path android:fillColor="#00000000" android:strokeColor="#C8763E" android:strokeWidth="1.8"
+        android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M20.5,10.5v2.5M20.5,15.5v0.5" />
+</vector>

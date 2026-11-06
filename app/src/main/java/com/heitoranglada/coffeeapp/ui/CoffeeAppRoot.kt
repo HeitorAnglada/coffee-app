@@ -4,10 +4,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -16,7 +12,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
+import com.heitoranglada.coffeeapp.R
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -47,12 +44,12 @@ private object Routes {
     fun brewDetail(id: Long) = "history/$id"
 }
 
-private data class Tab(val route: String, val label: String, val icon: ImageVector)
+private data class Tab(val route: String, val label: String, val icon: Int)
 
 private val tabs = listOf(
-    Tab(Routes.RECIPES, "Receitas", Icons.AutoMirrored.Filled.MenuBook),
-    Tab(Routes.FREE_BREW, "Preparo livre", Icons.Filled.Timer),
-    Tab(Routes.HISTORY, "Histórico", Icons.Filled.History),
+    Tab(Routes.RECIPES, "Receitas", R.drawable.ic_bb_recipes),
+    Tab(Routes.FREE_BREW, "Preparo livre", R.drawable.ic_bb_timer),
+    Tab(Routes.HISTORY, "Histórico", R.drawable.ic_bb_history),
 )
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -72,7 +69,7 @@ fun CoffeeAppRoot() {
                         NavigationBarItem(
                             selected = currentRoute == tab.route,
                             onClick = { nav.switchTab(tab.route) },
-                            icon = { Icon(tab.icon, contentDescription = null) },
+                            icon = { Icon(painterResource(tab.icon), contentDescription = null) },
                             label = { Text(tab.label) },
                         )
                     }

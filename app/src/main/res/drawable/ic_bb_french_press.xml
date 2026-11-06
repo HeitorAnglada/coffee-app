@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ícone Bloombrew "french_press": traço verde coador com detalhe terracota -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path android:fillColor="#C8763E" android:pathData="M7.5,14h8v6h-8z" />
+    <path android:fillColor="#00000000" android:strokeColor="#2F4A40" android:strokeWidth="1.8"
+        android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M6.5,8h10v12.5h-10z" />
+    <path android:fillColor="#00000000" android:strokeColor="#2F4A40" android:strokeWidth="1.8"
+        android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M16.5,10.5h1.5a1.5,1.5 0 0,1 1.5,1.5v4a1.5,1.5 0 0,1 -1.5,1.5h-1.5" />
+    <path android:fillColor="#00000000" android:strokeColor="#2F4A40" android:strokeWidth="1.8"
+        android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M11.5,2.5V11M9.5,2.5h4M8,11h7" />
+</vector>

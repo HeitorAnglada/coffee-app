@@ -1,25 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Xícara de café simples sobre fundo marrom (ícone adaptativo 108dp) -->
+<!-- Logo Bloombrew: coador V60 em traço com a cúpula do bloom (ícone adaptativo 108dp; arte na zona segura central de 66dp) -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <!-- corpo da xícara -->
-    <path
-        android:fillColor="#FFF8F0"
-        android:pathData="M34,44 L70,44 L67,70 Q66,76 60,76 L44,76 Q38,76 37,70 Z" />
-    <!-- alça -->
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFF8F0"
-        android:strokeWidth="4"
-        android:pathData="M69,50 Q78,50 77,58 Q76,65 67,65" />
-    <!-- vapor -->
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFF8F0"
-        android:strokeWidth="3"
-        android:strokeLineCap="round"
-        android:pathData="M46,38 Q42,33 46,28 M54,38 Q50,33 54,28 M62,38 Q58,33 62,28" />
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <group
+        android:scaleX="0.6"
+        android:scaleY="0.6"
+        android:translateX="20"
+        android:translateY="20">
+        <path android:fillColor="#C8763E" android:pathData="M28,40 Q50,18 72,40 Z" />
+        <path android:fillColor="#F4F1EA" android:pathData="M40,31 m-2.6,0 a2.6,2.6 0 1,0 5.2,0 a2.6,2.6 0 1,0 -5.2,0" />
+        <path android:fillColor="#F4F1EA" android:pathData="M54,27 m-2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0" />
+        <path android:fillColor="#F4F1EA" android:pathData="M61,34 m-1.6,0 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0" />
+        <path
+            android:fillColor="#00000000"
+            android:strokeColor="#F4F1EA"
+            android:strokeWidth="4.5"
+            android:strokeLineJoin="round"
+            android:pathData="M22,40 H78 L57,74 H43 Z" />
+        <path
+            android:strokeColor="#F4F1EA"
+            android:strokeWidth="2.4"
+            android:strokeLineCap="round"
+            android:pathData="M43,48 L48,66 M57,48 L52,66" />
+        <path
+            android:strokeColor="#F4F1EA"
+            android:strokeWidth="4.5"
+            android:strokeLineCap="round"
+            android:pathData="M34,82 H66" />
+    </group>
 </vector>

@@ -1,6 +1,6 @@
-# Coffee App
+# Bloombrew
 
-App Android para baristas e entusiastas registrarem receitas e preparos de café.
+Bloombrew é um app Android para baristas e entusiastas registrarem receitas e preparos de café.
 Funciona 100% offline: todos os dados ficam só no celular, sem conta.
 
 ## O que o app faz
@@ -61,3 +61,12 @@ app/src/main/java/com/heitoranglada/coffeeapp/
     ├── history/   # histórico de preparos
     └── components/# formulário e componentes compartilhados
 ```
+
+## Identidade visual
+
+- Logo: coador V60 em traço com a “cúpula” do bloom (`app/src/main/res/drawable/ic_launcher_foreground.xml`).
+- Cores: verde coador `#2F4A40`, terracota `#C8763E`, papel `#F4F1EA`, areia `#E6DFD2`.
+- Fontes: Space Grotesk (títulos e timer) e Inter (textos), embutidas em `res/font` (licença SIL Open Font License).
+- Ícones próprios em `res/drawable/ic_bb_*.xml` e animações em `ui/components/Animations.kt`
+  (timer, bloom, moedor, despejo, prensa e botão "Novo despejo"). As animações ficam paradas
+  quando o Android está com as animações desligadas.

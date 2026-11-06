@@ -3,7 +3,13 @@ package com.heitoranglada.coffeeapp.ui.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import com.heitoranglada.coffeeapp.R
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,16 +24,17 @@ import com.heitoranglada.coffeeapp.domain.formatRatio
 @Composable
 fun SummaryRow(dose: Double?, water: Double, timeSeconds: Int?, timeLabel: String = "Tempo") {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-        Stat("Café", dose?.let { formatGrams(it) } ?: "—")
-        Stat("Água", if (water > 0) formatGrams(water) else "—")
-        Stat("Proporção", formatRatio(dose, water) ?: "—")
-        Stat(timeLabel, timeSeconds?.takeIf { it > 0 }?.let { formatDuration(it) } ?: "—")
+        Stat(R.drawable.ic_bb_bean, "Café", dose?.let { formatGrams(it) } ?: "—")
+        Stat(R.drawable.ic_bb_kettle, "Água", if (water > 0) formatGrams(water) else "—")
+        Stat(R.drawable.ic_bb_ratio, "Proporção", formatRatio(dose, water) ?: "—")
+        Stat(R.drawable.ic_bb_timer, timeLabel, timeSeconds?.takeIf { it > 0 }?.let { formatDuration(it) } ?: "—")
     }
 }
 
 @Composable
-private fun Stat(label: String, value: String) {
+private fun Stat(@DrawableRes icon: Int, label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Image(painterResource(icon), contentDescription = null, modifier = Modifier.size(24.dp))
         Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
         Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
