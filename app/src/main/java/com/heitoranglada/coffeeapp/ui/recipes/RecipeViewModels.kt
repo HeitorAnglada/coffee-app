@@ -93,7 +93,7 @@ class RecipeEditViewModel(
                     )
                 }
                 else -> null
-            } ?: CoffeeForm()
+            } ?: CoffeeForm(doseText = "15")
             _state.update { it.copy(loading = false, isNew = original == null, form = form) }
         }
     }
