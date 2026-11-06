@@ -1,5 +1,7 @@
 package com.heitoranglada.coffeeapp.ui.components
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -304,7 +306,7 @@ fun MethodChips(
     modifier: Modifier = Modifier,
     showAll: Boolean = false,
 ) {
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (showAll) ChoiceChip("Todas", null, selected == null) { onSelect(null) }
         BrewMethod.entries.forEach { m ->
             ChoiceChip(if (m == BrewMethod.FRENCH_PRESS) "Prensa" else m.label, m.palette.bg, selected == m) { onSelect(m) }
@@ -323,13 +325,13 @@ private fun ChoiceChip(text: String, dot: Color?, selected: Boolean, onClick: ()
             .clip(RoundedCornerShape(50))
             .background(bg)
             .border(2.dp, Bloom.Ink, RoundedCornerShape(50))
-            .padding(horizontal = 14.dp)
+            .padding(horizontal = 12.dp)
             .semantics { role = Role.RadioButton },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         if (dot != null) Box(Modifier.size(10.dp).clip(CircleShape).background(dot))
-        Text(text, style = BloomType.chip.copy(fontSize = 14.sp), color = fg)
+        Text(text, style = BloomType.chip.copy(fontSize = 14.sp), color = fg, maxLines = 1, softWrap = false)
     }
 }
 

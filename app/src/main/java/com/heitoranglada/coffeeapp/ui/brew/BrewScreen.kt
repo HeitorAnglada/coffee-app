@@ -334,23 +334,23 @@ private fun TimerBloom(
             dashedRing(size.minDimension / 2f - w, ringColor.copy(alpha = 0.5f), w, rotation * 360f)
             dashedRing(size.minDimension * 0.376f, ringColor.copy(alpha = 0.5f), w, -rotation * 360f)
         }
+        Blob(Bloom.Cream, Modifier.size(232.dp * scale), periodMs = 6000, wobble = 0.08f) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                RollingText(elapsedText, BloomType.display(88.sp, -0.04f), Bloom.Ink)
+                if (subtitle != null) Text(subtitle, style = BloomType.chip.copy(fontSize = 14.sp), color = Bloom.Ink)
+            }
+        }
         if (outerLabel != null) {
             Text(
                 outerLabel,
                 style = BloomType.chip,
                 color = ringColor,
-                modifier = Modifier.align(Alignment.TopStart).offset(x = 270.dp, y = 44.dp),
+                modifier = Modifier.align(Alignment.TopEnd).offset(x = (-6).dp, y = 10.dp),
             )
         }
         if (innerLabel != null) {
-            SlideSwap(innerLabel, Modifier.align(Alignment.TopStart).offset(x = 222.dp, y = 74.dp)) {
+            SlideSwap(innerLabel, Modifier.align(Alignment.TopEnd).offset(x = (-2).dp, y = 44.dp)) {
                 Pill(it, Bloom.Ink, contentColor = Bloom.Cream, height = 26.dp)
-            }
-        }
-        Blob(Bloom.Cream, Modifier.size(232.dp * scale), periodMs = 6000, wobble = 0.08f) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                RollingText(elapsedText, BloomType.display(88.sp, -0.04f), Bloom.Ink)
-                if (subtitle != null) Text(subtitle, style = BloomType.chip.copy(fontSize = 14.sp), color = Bloom.Ink)
             }
         }
     }
