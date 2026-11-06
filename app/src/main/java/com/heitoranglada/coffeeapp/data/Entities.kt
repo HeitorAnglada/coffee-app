@@ -1,5 +1,6 @@
 package com.heitoranglada.coffeeapp.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.heitoranglada.coffeeapp.domain.BrewMethod
@@ -20,6 +21,15 @@ data class Recipe(
     val waterTempC: Int? = null,
     val targetTimeSeconds: Int? = null,
     val notes: String = "",
+    /** AeroPress montada de cabeça para baixo. */
+    @ColumnInfo(defaultValue = "0") val inverted: Boolean = false,
+    /** Espresso: gramas de bebida na xícara. */
+    val yieldGrams: Double? = null,
+    /** Espresso: janela de tempo de extração, em segundos. */
+    val windowMinSeconds: Int? = null,
+    val windowMaxSeconds: Int? = null,
+    /** Espresso: pré-infusão, em segundos. */
+    val preInfusionSeconds: Int? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
 )
@@ -42,6 +52,10 @@ data class Brew(
     /** Nota de 1 a 5, ou null. */
     val rating: Int? = null,
     val notes: String = "",
+    /** Espresso: gramas de bebida na xícara. */
+    val yieldGrams: Double? = null,
+    /** Espresso: tempo de extração com décimos (o total em segundos fica em [totalTimeSeconds]). */
+    val shotSeconds: Double? = null,
     val brewedAt: Long = System.currentTimeMillis(),
 )
 

@@ -46,21 +46,20 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.heitoranglada.coffeeapp.data.Recipe
-import com.heitoranglada.coffeeapp.data.waterGrams
 import com.heitoranglada.coffeeapp.domain.BrewMethod
-import com.heitoranglada.coffeeapp.domain.formatDuration
-import com.heitoranglada.coffeeapp.domain.formatGrams
 import com.heitoranglada.coffeeapp.ui.components.BigPillButton
 import com.heitoranglada.coffeeapp.ui.components.Blob
 import com.heitoranglada.coffeeapp.ui.components.MethodChips
 import com.heitoranglada.coffeeapp.ui.components.MethodSilhouette
 import com.heitoranglada.coffeeapp.ui.components.Pill
+import com.heitoranglada.coffeeapp.ui.components.shortPills
 import com.heitoranglada.coffeeapp.ui.components.Wordmark
 import com.heitoranglada.coffeeapp.ui.components.bouncyClick
 import com.heitoranglada.coffeeapp.ui.components.enterCascade
 import com.heitoranglada.coffeeapp.ui.components.overlapNext
 import com.heitoranglada.coffeeapp.ui.components.sway
 import com.heitoranglada.coffeeapp.ui.repoViewModelFactory
+import com.heitoranglada.coffeeapp.ui.calculator.CalculatorPill
 import com.heitoranglada.coffeeapp.ui.theme.Bloom
 import com.heitoranglada.coffeeapp.ui.theme.BloomType
 import com.heitoranglada.coffeeapp.ui.theme.palette
@@ -73,6 +72,7 @@ fun RecipeListScreen(
     onOpenRecipe: (Long) -> Unit,
     onBrewRecipe: (Long) -> Unit,
     onNewRecipe: () -> Unit,
+    onOpenCalculator: () -> Unit = {},
     vm: RecipeListViewModel = viewModel(factory = repoViewModelFactory { RecipeListViewModel(it) }),
 ) {
     val recipes by vm.recipes.collectAsStateWithLifecycle()
@@ -86,7 +86,10 @@ fun RecipeListScreen(
     ) {
         item(key = "header") {
             Column(Modifier.statusBarsPadding().padding(start = 22.dp, end = 22.dp, top = 26.dp, bottom = 18.dp)) {
-                Wordmark(Modifier.enterCascade(0))
+                Row(Modifier.fillMaxWidth().enterCascade(0), verticalAlignment = Alignment.CenterVertically) {
+                    Wordmark(Modifier.weight(1f))
+                    CalculatorPill(null, onOpenCalculator)
+                }
                 Text(
                     buildAnnotatedString {
                         append("O que vamos\npassar ")
@@ -168,9 +171,7 @@ private fun RecipeStackCard(
                 Text(recipe.coffee, style = BloomType.bodySmall, color = p.fg.copy(alpha = 0.8f), maxLines = 1, modifier = Modifier.padding(top = 6.dp))
             }
             Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                recipe.doseGrams?.let { Pill(formatGrams(it), p.chip, contentColor = p.fg, height = 30.dp) }
-                if (recipe.waterGrams > 0) Pill(formatGrams(recipe.waterGrams), p.chip, contentColor = p.fg, height = 30.dp)
-                recipe.targetTimeSeconds?.let { Pill(formatDuration(it), p.chip, contentColor = p.fg, height = 30.dp) }
+                recipe.shortPills().forEach { Pill(it, p.chip, contentColor = p.fg, height = 30.dp) }
             }
         }
         Box(

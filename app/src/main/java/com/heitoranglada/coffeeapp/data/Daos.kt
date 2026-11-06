@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
+import com.heitoranglada.coffeeapp.domain.BrewMethod
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -45,6 +46,12 @@ interface BrewDao {
 
     @Query("SELECT * FROM brews ORDER BY brewedAt DESC LIMIT 1")
     suspend fun getLatest(): Brew?
+
+    @Query("SELECT * FROM brews WHERE method = :method ORDER BY brewedAt DESC LIMIT 1")
+    suspend fun getLatest(method: BrewMethod): Brew?
+
+    @Query("SELECT * FROM brews WHERE brewedAt >= :since AND method = :method ORDER BY brewedAt ASC")
+    suspend fun since(since: Long, method: BrewMethod): List<Brew>
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(brew: Brew): Long

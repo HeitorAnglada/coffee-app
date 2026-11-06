@@ -36,7 +36,14 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.heitoranglada.coffeeapp.CoffeeApplication
 import com.heitoranglada.coffeeapp.R
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.heitoranglada.coffeeapp.ui.calculator.CalculatorSheet
+import com.heitoranglada.coffeeapp.ui.journal.BeanDetailScreen
+import com.heitoranglada.coffeeapp.ui.journal.BeanEditScreen
 import com.heitoranglada.coffeeapp.ui.brew.BrewScreen
 import com.heitoranglada.coffeeapp.ui.components.FloatingNavBar
 import com.heitoranglada.coffeeapp.ui.components.NavTab
@@ -55,17 +62,23 @@ private object Routes {
     const val RECIPE_EDIT = "recipe-edit?id={id}&fromBrew={fromBrew}"
     const val GUIDED_BREW = "brew/{recipeId}"
     const val BREW_DETAIL = "history/{id}"
+    const val BEAN_DETAIL = "bean/{id}"
+    const val BEAN_EDIT = "bean-edit?id={id}&back={back}"
 
     fun recipeDetail(id: Long) = "recipe/$id"
     fun recipeEdit(id: Long = 0, fromBrew: Long = 0) = "recipe-edit?id=$id&fromBrew=$fromBrew"
     fun guidedBrew(recipeId: Long) = "brew/$recipeId"
     fun brewDetail(id: Long) = "history/$id"
+    fun beanDetail(id: Long) = "bean/$id"
+
+    /** [back] = só voltar depois de salvar (ex.: veio do preparo); senão abre o grão novo. */
+    fun beanEdit(id: Long = 0, back: Boolean = false) = "bean-edit?id=$id&back=$back"
 }
 
 private val tabs = listOf(
     NavTab(Routes.RECIPES, "Receitas", R.drawable.ic_bb_recipes),
     NavTab(Routes.FREE_BREW, "Livre", R.drawable.ic_bb_timer),
-    NavTab(Routes.HISTORY, "Histórico", R.drawable.ic_bb_history),
+    NavTab(Routes.HISTORY, "Diário", R.drawable.ic_bb_history),
 )
 private val tabRoutes = tabs.map { it.route }.toSet()
 
@@ -104,6 +117,10 @@ fun CoffeeAppRoot() {
     val currentRoute = backStack?.destination?.route
     var brewing by remember { mutableStateOf(false) }
     val showBar = currentRoute in tabRoutes && !brewing
+    val app = LocalContext.current.applicationContext as CoffeeApplication
+    var showCalculator by rememberSaveable { mutableStateOf(false) }
+    val calc by app.calculator.state.collectAsStateWithLifecycle()
+    val openCalculator = { showCalculator = true }
 
     Box(Modifier.fillMaxSize().background(Bloom.Cream)) {
         NavHost(
@@ -120,6 +137,7 @@ fun CoffeeAppRoot() {
                     onOpenRecipe = { nav.navigate(Routes.recipeDetail(it)) },
                     onBrewRecipe = { nav.navigate(Routes.guidedBrew(it)) },
                     onNewRecipe = { nav.navigate(Routes.recipeEdit()) },
+                    onOpenCalculator = openCalculator,
                 )
             }
             composable(Routes.FREE_BREW) {
@@ -128,10 +146,16 @@ fun CoffeeAppRoot() {
                     onBack = null,
                     onSaved = { brewId -> nav.openSavedBrew(brewId) },
                     onImmersive = { brewing = it },
+                    onOpenCalculator = openCalculator,
+                    onNewBean = { nav.navigate(Routes.beanEdit(back = true)) },
                 )
             }
             composable(Routes.HISTORY) {
-                HistoryScreen(onOpenBrew = { nav.navigate(Routes.brewDetail(it)) })
+                HistoryScreen(
+                    onOpenBrew = { nav.navigate(Routes.brewDetail(it)) },
+                    onOpenBean = { nav.navigate(Routes.beanDetail(it)) },
+                    onNewBean = { nav.navigate(Routes.beanEdit()) },
+                )
             }
             composable(
                 Routes.RECIPE_DETAIL,
@@ -171,6 +195,7 @@ fun CoffeeAppRoot() {
                     recipeId = entry.arguments?.getLong("recipeId") ?: 0,
                     onBack = { nav.popBackStack() },
                     onSaved = { brewId -> nav.openSavedBrew(brewId) },
+                    onNewBean = { nav.navigate(Routes.beanEdit(back = true)) },
                 )
             }
             composable(
@@ -182,8 +207,52 @@ fun CoffeeAppRoot() {
                     onBack = { nav.popBackStack() },
                     onSaveAsRecipe = { nav.navigate(Routes.recipeEdit(fromBrew = it)) },
                     onBrewAgain = { nav.navigate(Routes.guidedBrew(it)) },
+                    onOpenBean = { nav.navigate(Routes.beanDetail(it)) },
                 )
             }
+            composable(
+                Routes.BEAN_DETAIL,
+                arguments = listOf(navArgument("id") { type = NavType.LongType }),
+            ) { entry ->
+                BeanDetailScreen(
+                    beanId = entry.arguments?.getLong("id") ?: 0,
+                    onBack = { nav.popBackStack() },
+                    onEdit = { nav.navigate(Routes.beanEdit(id = it)) },
+                    onOpenBrew = { nav.navigate(Routes.brewDetail(it)) },
+                    onBrew = { nav.switchTab(Routes.FREE_BREW) },
+                )
+            }
+            composable(
+                Routes.BEAN_EDIT,
+                arguments = listOf(
+                    navArgument("id") { type = NavType.LongType; defaultValue = 0L },
+                    navArgument("back") { type = NavType.BoolType; defaultValue = false },
+                ),
+            ) { entry ->
+                val id = entry.arguments?.getLong("id") ?: 0
+                val back = entry.arguments?.getBoolean("back") ?: false
+                BeanEditScreen(
+                    beanId = id,
+                    onBack = { nav.popBackStack() },
+                    onSaved = { savedId ->
+                        nav.popBackStack()
+                        // Grão novo cadastrado pelo diário: abre o detalhe dele.
+                        if (id == 0L && !back) nav.navigate(Routes.beanDetail(savedId))
+                    },
+                )
+            }
+        }
+
+        if (showCalculator) {
+            CalculatorSheet(
+                state = calc,
+                onChange = app.calculator::update,
+                onDismiss = { showCalculator = false },
+                onBrew = {
+                    app.calculator.usePlan()
+                    nav.switchTab(Routes.FREE_BREW)
+                },
+            )
         }
 
         AnimatedVisibility(

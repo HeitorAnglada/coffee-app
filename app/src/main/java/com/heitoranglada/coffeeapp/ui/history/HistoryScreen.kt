@@ -1,6 +1,31 @@
 package com.heitoranglada.coffeeapp.ui.history
 
 import androidx.compose.foundation.background
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import com.heitoranglada.coffeeapp.ui.appViewModelFactory
+import com.heitoranglada.coffeeapp.ui.components.BeanIcon
+import com.heitoranglada.coffeeapp.ui.journal.BeansViewModel
+import com.heitoranglada.coffeeapp.ui.journal.EmptyBeans
+import com.heitoranglada.coffeeapp.ui.journal.beanGrid
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,9 +85,15 @@ import java.util.Locale
 @Composable
 fun HistoryScreen(
     onOpenBrew: (Long) -> Unit,
+    onOpenBean: (Long) -> Unit = {},
+    onNewBean: () -> Unit = {},
+    startOnBeans: Boolean = false,
     vm: HistoryViewModel = viewModel(factory = repoViewModelFactory { HistoryViewModel(it) }),
+    beansVm: BeansViewModel = viewModel(factory = appViewModelFactory { BeansViewModel(it) }),
 ) {
     val brews by vm.brews.collectAsStateWithLifecycle()
+    val beanCards by beansVm.cards.collectAsStateWithLifecycle()
+    var showBeans by rememberSaveable { mutableStateOf(startOnBeans) }
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val list = brews
 
@@ -76,17 +107,31 @@ fun HistoryScreen(
                 Wordmark(Modifier.enterCascade(0))
                 Text(
                     buildAnnotatedString {
-                        append("Seus ")
-                        withStyle(SpanStyle(color = Bloom.Terra)) { append("preparos") }
+                        append("Seu ")
+                        withStyle(SpanStyle(color = Bloom.Terra)) { append("diário") }
                     },
                     style = BloomType.display(44.sp, -0.035f),
                     color = Bloom.Ink,
                     modifier = Modifier.padding(top = 12.dp).enterCascade(1),
                 )
-                WeekStrip(list.orEmpty(), Modifier.padding(top = 16.dp).enterCascade(2))
+                JournalTabs(showBeans, { showBeans = it }, Modifier.padding(top = 16.dp).enterCascade(2))
+                AnimatedVisibility(!showBeans, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+                    WeekStrip(list.orEmpty(), Modifier.padding(top = 12.dp))
+                }
             }
         }
-        when {
+        if (showBeans) {
+            val cards = beanCards
+            when {
+                cards == null -> item(key = "beans-loading") {
+                    Box(Modifier.fillMaxWidth().padding(top = 60.dp), contentAlignment = Alignment.Center) {
+                        Blob(Bloom.Terra, Modifier.size(110.dp), periodMs = 2000, wobble = 0.12f)
+                    }
+                }
+                cards.isEmpty() -> item(key = "beans-empty") { EmptyBeans(onNewBean, Modifier.enterCascade(3)) }
+                else -> beanGrid(cards, onOpenBean, onNewBean)
+            }
+        } else when {
             list == null -> item(key = "loading") {
                 Box(Modifier.fillMaxWidth().padding(top = 60.dp), contentAlignment = Alignment.Center) {
                     Blob(Bloom.Terra, Modifier.size(110.dp), periodMs = 2000, wobble = 0.12f)
@@ -116,6 +161,47 @@ fun HistoryScreen(
                     onClick = { onOpenBrew(brew.id) },
                     modifier = Modifier.animateItem().enterCascade(index + 3),
                 )
+            }
+        }
+    }
+}
+
+/** Preparos | Grãos: a pílula escura desliza para a parte escolhida. */
+@Composable
+private fun JournalTabs(showBeans: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+    BoxWithConstraints(
+        modifier
+            .fillMaxWidth()
+            .height(50.dp)
+            .clip(RoundedCornerShape(25.dp))
+            .background(Bloom.Sand)
+            .padding(4.dp),
+    ) {
+        val half = maxWidth / 2
+        val x by animateDpAsState(if (showBeans) half else 0.dp, spring(dampingRatio = 0.7f, stiffness = 500f), label = "tab-x")
+        Box(Modifier.offset(x = x).width(half).fillMaxHeight().clip(RoundedCornerShape(21.dp)).background(Bloom.Ink))
+        Row(Modifier.fillMaxSize()) {
+            listOf(false to "Preparos", true to "Grãos").forEach { (beans, label) ->
+                val on = beans == showBeans
+                val fg by animateColorAsState(if (on) Bloom.Cream else Bloom.Muted, label = "tab-fg")
+                Row(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .bouncyClick(pressedScale = 0.95f, onClickLabel = label) { onChange(beans) }
+                        .semantics {
+                            role = Role.Tab
+                            selected = on
+                        },
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (beans) {
+                        BeanIcon(fg, if (on) Bloom.Ink else Bloom.Sand, Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text(label, style = BloomType.display(15.sp, 0f), color = fg)
+                }
             }
         }
     }
@@ -173,7 +259,7 @@ private fun WeekStrip(brews: List<Brew>, modifier: Modifier = Modifier) {
                                 .size(12.dp)
                                 .popIn(200L + i * 60L + k * 80L)
                                 .clip(CircleShape)
-                                .background(if (today && m == BrewMethod.FRENCH_PRESS) Bloom.Cream else m.palette.bg),
+                                .background(if (today && (m == BrewMethod.FRENCH_PRESS || m == BrewMethod.ESPRESSO)) Bloom.Cream else m.palette.bg),
                         )
                     }
                 }
@@ -234,7 +320,8 @@ private fun BrewRow(brew: Brew, onClick: () -> Unit, modifier: Modifier = Modifi
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            val amounts = listOfNotNull(brew.doseGrams?.let(::formatGrams), brew.waterGrams.takeIf { it > 0 }?.let(::formatGrams)).joinToString(" → ")
+            val out = if (brew.method.isEspresso) brew.yieldGrams else brew.waterGrams.takeIf { it > 0 }
+            val amounts = listOfNotNull(brew.doseGrams?.let(::formatGrams), out?.let(::formatGrams)).joinToString(" → ")
             Text(
                 listOf(relativeWhen(brew.brewedAt), amounts).filter { it.isNotBlank() }.joinToString(" · "),
                 style = BloomType.bodySmall.copy(fontSize = 12.sp),
@@ -244,6 +331,10 @@ private fun BrewRow(brew: Brew, onClick: () -> Unit, modifier: Modifier = Modifi
             )
             if (brew.rating != null) MiniBeans(brew.rating, Modifier.padding(top = 6.dp))
         }
-        Text(formatDuration(brew.totalTimeSeconds), style = BloomType.display(24.sp, -0.02f), color = Bloom.Ink)
+        Text(
+            if (brew.method.isEspresso) "${(brew.shotSeconds ?: brew.totalTimeSeconds.toDouble()).toInt()} s" else formatDuration(brew.totalTimeSeconds),
+            style = BloomType.display(24.sp, -0.02f),
+            color = Bloom.Ink,
+        )
     }
 }

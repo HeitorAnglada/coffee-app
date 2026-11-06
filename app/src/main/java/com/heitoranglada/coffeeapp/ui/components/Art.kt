@@ -44,12 +44,19 @@ private val pressPath = svgPath(
     "M24 30 H76 V96 H24 Z M46 4 H54 V30 H46 Z M36 2 H64 V9 H36 Z " +
         "M78 44 Q94 44 94 60 Q94 76 78 76 V68 Q86 68 86 60 Q86 52 78 52 Z",
 )
+private val aeropressPath = svgPath("M24 4 H76 V11 H24 Z M35 11 H65 V34 H35 Z M30 30 H70 V86 H30 Z M24 86 H76 V93 H24 Z")
+private val espressoPath = svgPath(
+    "M22 14 H66 V28 H22 Z M66 18 H96 V24 H66 Z M40 28 H48 V38 H40 Z M24 52 H64 V72 Q64 88 44 88 Q24 88 24 72 Z " +
+        "M64 58 Q78 58 78 66 Q78 74 64 74 V69 Q72 69 72 66 Q72 63 64 63 Z M12 92 H76 V97 H12 Z",
+)
 private val dropPath = svgPath("M12 2s9 10 9 17a9 9 0 0 1-18 0c0-7 9-17 9-17z")
 
 fun BrewMethod.silhouette(): Path = when (this) {
     BrewMethod.V60 -> v60Path
     BrewMethod.MELITTA -> melittaPath
     BrewMethod.FRENCH_PRESS -> pressPath
+    BrewMethod.AEROPRESS -> aeropressPath
+    BrewMethod.ESPRESSO -> espressoPath
 }
 
 /** Desenha num espaço de [w]x[h] unidades, centralizado e mantendo a proporção. */

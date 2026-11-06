@@ -24,6 +24,8 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import com.heitoranglada.coffeeapp.domain.StepKind
+import androidx.compose.ui.semantics.selected
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -86,6 +88,7 @@ import androidx.compose.ui.unit.sp
 import com.heitoranglada.coffeeapp.domain.BrewMethod
 import com.heitoranglada.coffeeapp.ui.theme.Bloom
 import com.heitoranglada.coffeeapp.ui.theme.BloomType
+import com.heitoranglada.coffeeapp.ui.theme.isDark
 import com.heitoranglada.coffeeapp.ui.theme.palette
 
 /** "bloombrew." com o ponto terracota. */
@@ -131,7 +134,10 @@ fun Pill(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        if (dot != null) Box(Modifier.size(10.dp).clip(CircleShape).background(dot))
+        if (dot != null) {
+            // A bolinha do espresso é tinta: ganha um contorno para aparecer no chip escuro.
+            Box(Modifier.size(10.dp).clip(CircleShape).background(dot).then(if (dot == Bloom.Ink) Modifier.border(1.5.dp, Bloom.Cream, CircleShape) else Modifier))
+        }
         Text(text, style = BloomType.chip, color = contentColor, maxLines = 1)
     }
 }
@@ -309,7 +315,7 @@ fun MethodChips(
     Row(modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (showAll) ChoiceChip("Todas", null, selected == null) { onSelect(null) }
         BrewMethod.entries.forEach { m ->
-            ChoiceChip(if (m == BrewMethod.FRENCH_PRESS) "Prensa" else m.label, m.palette.bg, selected == m) { onSelect(m) }
+            ChoiceChip(m.shortLabel, m.palette.bg, selected == m) { onSelect(m) }
         }
     }
 }
@@ -330,59 +336,72 @@ private fun ChoiceChip(text: String, dot: Color?, selected: Boolean, onClick: ()
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        if (dot != null) Box(Modifier.size(10.dp).clip(CircleShape).background(dot))
+        if (dot != null) {
+            // A bolinha do espresso é tinta: ganha um contorno para aparecer no chip escuro.
+            Box(Modifier.size(10.dp).clip(CircleShape).background(dot).then(if (dot == Bloom.Ink) Modifier.border(1.5.dp, Bloom.Cream, CircleShape) else Modifier))
+        }
         Text(text, style = BloomType.chip.copy(fontSize = 14.sp), color = fg, maxLines = 1, softWrap = false)
     }
 }
 
-/** Escolha do método em blocos grandes com a silhueta. */
+/** Escolha do método em blocos grandes com a silhueta, em grade de 3 por linha. */
 @Composable
 fun MethodTiles(selected: BrewMethod, onSelect: (BrewMethod) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        BrewMethod.entries.forEach { m ->
-            val p = m.palette
-            val on = m == selected
-            // A mola passa do alvo; sem o limite, ao desmarcar a borda ficava negativa e o app fechava.
-            val ringAnim by animateDpAsState(if (on) 3.dp else 0.dp, spring(dampingRatio = 0.5f), label = "ring")
-            val ring = ringAnim.coerceAtLeast(0.dp)
-            val lift by animateFloatAsState(if (on) 1f else 0.94f, spring(dampingRatio = 0.5f), label = "lift")
-            Box(
-                Modifier
-                    .weight(1f)
-                    .height(120.dp)
-                    .graphicsLayer {
-                        scaleX = lift
-                        scaleY = lift
-                    }
-                    .bouncyClick { onSelect(m) }
-                    .border(ring, Bloom.Ink, RoundedCornerShape(26.dp))
-                    .padding(ring + (if (on) 3.dp else 0.dp))
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(p.bg)
-                    .semantics { role = Role.RadioButton },
-            ) {
-                MethodSilhouette(
-                    m, p.fg.copy(alpha = 0.3f),
-                    Modifier.size(80.dp).align(Alignment.TopEnd).offset(x = 14.dp, y = (-6).dp).sway(5f, 4000 + m.ordinal * 700),
-                )
-                androidx.compose.animation.AnimatedVisibility(
-                    on,
-                    enter = scaleIn(spring(dampingRatio = 0.4f)) + fadeIn(),
-                    exit = scaleOut() + fadeOut(),
-                    modifier = Modifier.align(Alignment.TopStart).padding(10.dp),
-                ) {
-                    Box(Modifier.size(24.dp).clip(CircleShape).background(Bloom.Ink), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Filled.Check, null, tint = Bloom.Cream, modifier = Modifier.size(15.dp))
-                    }
-                }
-                Text(
-                    if (m == BrewMethod.FRENCH_PRESS) "Prensa" else m.label,
-                    style = BloomType.display(17.sp, -0.01f),
-                    color = p.fg,
-                    modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
-                )
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        BrewMethod.entries.chunked(3).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                row.forEach { m -> MethodTile(m, m == selected, Modifier.weight(1f)) { onSelect(m) } }
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
+    }
+}
+
+@Composable
+private fun MethodTile(m: BrewMethod, on: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val p = m.palette
+    // A mola passa do alvo; sem o limite, ao desmarcar a borda ficava negativa e o app fechava.
+    val ringAnim by animateDpAsState(if (on) 3.dp else 0.dp, spring(dampingRatio = 0.5f), label = "ring")
+    val ring = ringAnim.coerceAtLeast(0.dp)
+    val lift by animateFloatAsState(if (on) 1f else 0.94f, spring(dampingRatio = 0.5f), label = "lift")
+    Box(
+        modifier
+            .height(100.dp)
+            .graphicsLayer {
+                scaleX = lift
+                scaleY = lift
+            }
+            .bouncyClick(onClick = onClick)
+            .border(ring, Bloom.Ink, RoundedCornerShape(26.dp))
+            .padding(ring + (if (on) 3.dp else 0.dp))
+            .clip(RoundedCornerShape(22.dp))
+            .background(p.bg)
+            .semantics {
+                role = Role.RadioButton
+                selected = on
+            },
+    ) {
+        MethodSilhouette(
+            m, p.fg.copy(alpha = 0.3f),
+            Modifier.size(70.dp).align(Alignment.TopEnd).offset(x = 12.dp, y = (-6).dp).sway(5f, 4000 + m.ordinal * 700),
+        )
+        androidx.compose.animation.AnimatedVisibility(
+            on,
+            enter = scaleIn(spring(dampingRatio = 0.4f)) + fadeIn(),
+            exit = scaleOut() + fadeOut(),
+            modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
+        ) {
+            Box(Modifier.size(22.dp).clip(CircleShape).background(if (p.isDark) Bloom.Cream else Bloom.Ink), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.Check, null, tint = if (p.isDark) Bloom.Ink else Bloom.Cream, modifier = Modifier.size(14.dp))
+            }
+        }
+        Text(
+            m.shortLabel,
+            style = BloomType.display(16.sp, -0.01f),
+            color = p.fg,
+            maxLines = 1,
+            modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 10.dp, vertical = 10.dp),
+        )
     }
 }
 
@@ -558,74 +577,102 @@ fun ErrorSticker(errors: List<String>) {
 fun pourColor(index: Int): Color = listOf(Bloom.Terra, Bloom.Mustard, Bloom.Peach, Bloom.Green)[index % 4]
 
 /**
- * Editor dos despejos: gota numerada + início + gramas. Linhas entram e saem com animação.
+ * Editor das etapas: gota numerada + início + gramas. Etapas sem água (mexer, virar, prensar)
+ * mostram só o nome. Linhas entram e saem com animação.
  * Com [highlightEmpty], os campos de gramas vazios brilham (preparo livre).
+ * @param stepKinds tipos de etapa que podem ser adicionados (só despejo, fora a AeroPress).
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PourEditor(
     pours: List<PourInput>,
     onChange: (List<PourInput>) -> Unit,
     highlightEmpty: Boolean,
     allowAdd: Boolean = true,
+    stepKinds: List<StepKind> = listOf(StepKind.POUR),
 ) {
     Column(Modifier.animateContentSize(spring(dampingRatio = 0.8f, stiffness = 400f)), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         pours.forEachIndexed { index, pour ->
             androidx.compose.runtime.key(index) {
                 Row(Modifier.popIn(index * 50L), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Drop(
-                        "${index + 1}",
-                        fill = if (highlightEmpty && pour.gramsText.isBlank()) Bloom.Terra else Bloom.Ink,
-                        textColor = if (highlightEmpty && pour.gramsText.isBlank()) Bloom.Ink else pourColor(index),
-                        width = 30.dp,
-                        textStyle = BloomType.display(13.sp, 0f),
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
+                    val empty = highlightEmpty && pour.missingGrams
+                    if (pour.kind == StepKind.POUR) {
+                        Drop(
+                            "${index + 1}",
+                            fill = if (empty) Bloom.Terra else Bloom.Ink,
+                            textColor = if (empty) Bloom.Ink else pourColor(index),
+                            width = 30.dp,
+                            textStyle = BloomType.display(13.sp, 0f),
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    } else {
+                        Box(
+                            Modifier.size(30.dp).clip(CircleShape).background(if (empty) Bloom.Terra else Bloom.Ink),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(pour.kind.icon, pour.kind.label, tint = if (empty) Bloom.Ink else pourColor(index), modifier = Modifier.size(18.dp))
+                        }
+                    }
                     PillField(
                         pour.startText,
                         { v -> onChange(pours.toMutableList().also { it[index] = pour.copy(startText = v) }) },
                         Modifier.weight(0.8f),
                         placeholder = "0:45",
                     )
-                    PillField(
-                        pour.gramsText,
-                        { v -> onChange(pours.toMutableList().also { it[index] = pour.copy(gramsText = v) }) },
-                        Modifier.weight(1f),
-                        placeholder = "quantos g?",
-                        suffix = "g",
-                        keyboardType = KeyboardType.Decimal,
-                        highlight = highlightEmpty && pour.gramsText.isBlank(),
-                    )
+                    if (pour.kind.addsWater) {
+                        PillField(
+                            pour.gramsText,
+                            { v -> onChange(pours.toMutableList().also { it[index] = pour.copy(gramsText = v) }) },
+                            Modifier.weight(1f),
+                            placeholder = if (pour.kind == StepKind.DILUTE) "diluir g" else "quantos g?",
+                            suffix = "g",
+                            keyboardType = KeyboardType.Decimal,
+                            highlight = empty,
+                        )
+                    } else {
+                        Box(
+                            Modifier.weight(1f).height(52.dp).clip(RoundedCornerShape(50)).background(Bloom.Sand).padding(horizontal = 18.dp),
+                            contentAlignment = Alignment.CenterStart,
+                        ) {
+                            Text(pour.kind.label, style = BloomType.chip.copy(fontSize = 16.sp), color = Bloom.Ink)
+                        }
+                    }
                     if (allowAdd) {
+                        val canRemove = pours.size > 1
                         Box(
                             Modifier
                                 .size(32.dp)
-                                .bouncyClick(enabled = pours.size > 1, onClickLabel = "Remover despejo") {
+                                .bouncyClick(enabled = canRemove, onClickLabel = "Remover etapa") {
                                     onChange(pours.toMutableList().also { it.removeAt(index) })
                                 },
                             contentAlignment = Alignment.Center,
                         ) {
-                            Icon(Icons.Filled.Close, "Remover despejo", tint = if (pours.size > 1) Bloom.Muted else Bloom.Line, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Filled.Close, "Remover etapa", tint = if (canRemove) Bloom.Muted else Bloom.Line, modifier = Modifier.size(18.dp))
                         }
                     }
                 }
             }
         }
         if (allowAdd) {
-            Row(
-                Modifier
-                    .height(44.dp)
-                    .bouncyClick {
-                        val last = pours.lastOrNull()?.toPour()
-                        val nextStart = (last?.startSeconds ?: -30) + 30
-                        onChange(pours + PourInput(com.heitoranglada.coffeeapp.domain.formatDuration(nextStart), ""))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                stepKinds.forEach { kind ->
+                    Row(
+                        Modifier
+                            .height(44.dp)
+                            .bouncyClick(onClickLabel = "Adicionar ${kind.addLabel}") {
+                                val last = pours.lastOrNull()?.toPour()
+                                val nextStart = (last?.startSeconds ?: -30) + if (kind.addsWater) 30 else 15
+                                onChange(pours + PourInput(com.heitoranglada.coffeeapp.domain.formatDuration(nextStart), "", kind))
+                            }
+                            .border(2.dp, Bloom.Ink, RoundedCornerShape(50))
+                            .padding(horizontal = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Filled.Add, null, tint = Bloom.Ink, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(kind.addLabel, style = BloomType.chip.copy(fontSize = 14.sp), color = Bloom.Ink)
                     }
-                    .border(2.dp, Bloom.Ink, RoundedCornerShape(50))
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Filled.Add, null, tint = Bloom.Ink, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("despejo", style = BloomType.chip.copy(fontSize = 14.sp), color = Bloom.Ink)
+                }
             }
         }
     }
@@ -649,4 +696,32 @@ fun <T> SlideSwap(target: T, modifier: Modifier = Modifier, content: @Composable
 @Composable
 fun PillFlow(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { content() }
+}
+
+/** Opções lado a lado que ocupam a largura toda (posição da AeroPress, janela do espresso). */
+@Composable
+fun ToggleChips(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        options.forEachIndexed { i, text ->
+            val on = i == selected
+            val bg by animateColorAsState(if (on) Bloom.Ink else Bloom.Cream, label = "toggle-bg")
+            val fg by animateColorAsState(if (on) Bloom.Cream else Bloom.Ink, label = "toggle-fg")
+            Box(
+                Modifier
+                    .weight(1f)
+                    .height(44.dp)
+                    .bouncyClick(onClickLabel = text) { onSelect(i) }
+                    .clip(RoundedCornerShape(50))
+                    .background(bg)
+                    .border(2.dp, Bloom.Ink, RoundedCornerShape(50))
+                    .semantics {
+                        role = Role.RadioButton
+                        this.selected = on
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(text, style = BloomType.chip.copy(fontSize = 14.sp), color = fg, maxLines = 1)
+            }
+        }
+    }
 }

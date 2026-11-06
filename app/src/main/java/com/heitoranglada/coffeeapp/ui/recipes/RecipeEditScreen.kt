@@ -35,6 +35,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.heitoranglada.coffeeapp.domain.BrewMethod
+import com.heitoranglada.coffeeapp.domain.EspressoWindows
+import com.heitoranglada.coffeeapp.domain.StepKind
+import com.heitoranglada.coffeeapp.domain.espressoStyle
 import com.heitoranglada.coffeeapp.domain.formatNumber
 import com.heitoranglada.coffeeapp.domain.formatRatio
 import com.heitoranglada.coffeeapp.ui.components.BigPillButton
@@ -50,6 +54,9 @@ import com.heitoranglada.coffeeapp.ui.components.PourEditor
 import com.heitoranglada.coffeeapp.ui.components.Stepper
 import com.heitoranglada.coffeeapp.ui.components.SuggestionRow
 import com.heitoranglada.coffeeapp.ui.components.TextAction
+import com.heitoranglada.coffeeapp.ui.components.ToggleChips
+import com.heitoranglada.coffeeapp.ui.components.windowText
+import com.heitoranglada.coffeeapp.ui.components.withMethod
 import com.heitoranglada.coffeeapp.ui.components.enterCascade
 import com.heitoranglada.coffeeapp.ui.components.wiggle
 import com.heitoranglada.coffeeapp.ui.repoViewModelFactory
@@ -106,14 +113,14 @@ fun RecipeEditScreen(
         )
 
         Section("1 · Qual método?", 1) {
-            MethodTiles(form.method) { onChange(form.copy(method = it)) }
+            MethodTiles(form.method) { onChange(form.withMethod(it)) }
             AnimatedContent(form.method, label = "tip") { m ->
                 Text(m.tip, style = BloomType.bodySmall, color = Bloom.Body)
             }
         }
 
         Section("2 · Sobre o café", 2) {
-            PillField(form.name, { onChange(form.copy(name = it)) }, label = "Nome da receita", placeholder = "Ex.: V60 do sábado")
+            PillField(form.name, { onChange(form.copy(name = it)) }, label = "Nome da receita", placeholder = "Ex.: ${form.method.shortLabel} do sábado")
             PillField(form.coffee, { onChange(form.copy(coffee = it)) }, label = "Café", placeholder = "Ex.: Fazenda X, catuaí amarelo")
             SuggestionRow(form.coffee, coffees) { onChange(form.copy(coffee = it)) }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -124,24 +131,57 @@ fun RecipeEditScreen(
         }
 
         Section("3 · Quanto?", 3) {
-            QuantityRow(form, onChange)
+            if (form.method.isEspresso) EspressoQuantity(form, onChange) else QuantityRow(form, onChange)
         }
 
-        Section("4 · Despejos", 4) {
-            Text(
-                "Quando cada despejo começa (m:ss) e quantos gramas de água ele tem. O primeiro costuma ser o bloom.",
-                style = BloomType.bodySmall,
-                color = Bloom.Body,
-            )
-            PourEditor(form.pours, { onChange(form.copy(pours = it)) }, highlightEmpty = false)
-        }
-
-        ExpandableCard("Mais opções", "temperatura, tempo-alvo e notas", Modifier.enterCascade(5)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PillField(form.waterTempText, { onChange(form.copy(waterTempText = it)) }, Modifier.weight(1f), label = "Temperatura", placeholder = "93", suffix = "°C", keyboardType = KeyboardType.Number)
-                PillField(form.timeText, { onChange(form.copy(timeText = it)) }, Modifier.weight(1f), label = "Tempo-alvo", placeholder = "3:00")
+        when {
+            form.method.isEspresso -> Section("4 · Janela de tempo", 4) {
+                val presets = EspressoWindows.presets
+                val idx = presets.indexOf(form.windowMin to form.windowMax).takeIf { it >= 0 } ?: 1
+                ToggleChips(presets.map { windowText(it.first, it.second) }, idx, { i ->
+                    onChange(form.copy(windowMin = presets[i].first, windowMax = presets[i].second))
+                })
+                Text(
+                    "Conta a partir do botão da máquina. Torra clara pede mais tempo; torra escura, menos.",
+                    style = BloomType.bodySmall,
+                    color = Bloom.Body,
+                )
             }
-            PillField(form.notes, { onChange(form.copy(notes = it)) }, label = "Notas", placeholder = "Sabor, acidez, doçura, o que mudar…", singleLine = false)
+            form.method == BrewMethod.AEROPRESS -> Section("4 · Etapas", 4) {
+                ToggleChips(listOf("Normal", "Invertida"), if (form.inverted) 1 else 0, { onChange(form.copy(inverted = it == 1)) })
+                Text(
+                    if (form.inverted) "De cabeça para baixo, com o êmbolo na base: nada pinga até virar." else "Filtro embaixo desde o começo. Encaixe o êmbolo de leve para segurar o pingo.",
+                    style = BloomType.bodySmall,
+                    color = Bloom.Body,
+                )
+                PourEditor(form.pours, { onChange(form.copy(pours = it)) }, highlightEmpty = false, stepKinds = StepKind.entries)
+            }
+            else -> Section("4 · Despejos", 4) {
+                Text(
+                    "Quando cada despejo começa (m:ss) e quantos gramas de água ele tem. O primeiro costuma ser o bloom.",
+                    style = BloomType.bodySmall,
+                    color = Bloom.Body,
+                )
+                PourEditor(form.pours, { onChange(form.copy(pours = it)) }, highlightEmpty = false)
+            }
+        }
+
+        if (form.method.isEspresso) {
+            ExpandableCard("Mais opções", "temperatura, pré-infusão e notas", Modifier.enterCascade(5)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PillField(form.waterTempText, { onChange(form.copy(waterTempText = it)) }, Modifier.weight(1f), label = "Temperatura", placeholder = "93", suffix = "°C", keyboardType = KeyboardType.Number)
+                    PillField(form.preInfusionText, { onChange(form.copy(preInfusionText = it)) }, Modifier.weight(1f), label = "Pré-infusão", placeholder = "4", suffix = "s", keyboardType = KeyboardType.Number)
+                }
+                PillField(form.notes, { onChange(form.copy(notes = it)) }, label = "Notas", placeholder = "Sabor, corpo, crema, o que mudar…", singleLine = false)
+            }
+        } else {
+            ExpandableCard("Mais opções", "temperatura, tempo-alvo e notas", Modifier.enterCascade(5)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PillField(form.waterTempText, { onChange(form.copy(waterTempText = it)) }, Modifier.weight(1f), label = "Temperatura", placeholder = "93", suffix = "°C", keyboardType = KeyboardType.Number)
+                    PillField(form.timeText, { onChange(form.copy(timeText = it)) }, Modifier.weight(1f), label = "Tempo-alvo", placeholder = "3:00")
+                }
+                PillField(form.notes, { onChange(form.copy(notes = it)) }, label = "Notas", placeholder = "Sabor, acidez, doçura, o que mudar…", singleLine = false)
+            }
         }
 
         ErrorSticker(state.errors)
@@ -217,5 +257,50 @@ fun QuantityRow(form: CoffeeForm, onChange: (CoffeeForm) -> Unit) {
                 Text(" · $feel", style = BloomType.chip.copy(fontSize = 14.sp), color = Bloom.Cream)
             }
         }
+    }
+}
+
+/** Espresso: dose e quanto sai na xícara, com a proporção e o estilo (ristretto, normale, lungo). */
+@Composable
+fun EspressoQuantity(form: CoffeeForm, onChange: (CoffeeForm) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Stepper(
+                label = "Dose",
+                value = form.doseText,
+                onValueChange = { onChange(form.copy(doseText = it)) },
+                onMinus = { onChange(form.copy(doseText = formatNumber(((form.dose ?: 18.5) - 0.5).coerceAtLeast(1.0)))) },
+                onPlus = { onChange(form.copy(doseText = formatNumber((form.dose ?: 17.5) + 0.5))) },
+                unit = "g",
+                modifier = Modifier.weight(1f),
+            )
+            Stepper(
+                label = "Na xícara",
+                value = form.yieldText,
+                onValueChange = { onChange(form.copy(yieldText = it)) },
+                onMinus = { onChange(form.copy(yieldText = formatNumber(((form.yieldGrams ?: 37.0) - 1).coerceAtLeast(1.0)))) },
+                onPlus = { onChange(form.copy(yieldText = formatNumber((form.yieldGrams ?: 35.0) + 1))) },
+                unit = "g",
+                modifier = Modifier.weight(1f),
+            )
+        }
+        val ratio = formatRatio(form.dose, form.yieldGrams)
+        if (ratio != null) {
+            Row(
+                Modifier
+                    .wiggle(-2f, 3000)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(Bloom.Ink)
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Proporção ", style = BloomType.chip.copy(fontSize = 14.sp), color = Bloom.Cream)
+                AnimatedContent(ratio, label = "ratio") { Text(it, style = BloomType.display(20.sp, 0f), color = Bloom.Mustard) }
+                espressoStyle(form.dose, form.yieldGrams)?.let {
+                    AnimatedContent(it, label = "style") { st -> Text(" · $st", style = BloomType.chip.copy(fontSize = 14.sp), color = Bloom.Cream) }
+                }
+            }
+        }
+        Text("ristretto até 1:1,5 · normale 1:2 · lungo 1:3", style = BloomType.bodySmall.copy(fontSize = 12.sp), color = Bloom.Muted)
     }
 }

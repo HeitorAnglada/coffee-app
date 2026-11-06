@@ -19,6 +19,11 @@
   <img src="docs/images/preparo-livre.png" alt="Preparo livre marcando os despejos" width="200">
   <img src="docs/images/historico.png" alt="Histórico de preparos" width="200">
 </p>
+<p align="center">
+  <img src="docs/images/calculadora.png" alt="Calculadora de proporção" width="200">
+  <img src="docs/images/diario-graos.png" alt="Diário de grãos com fotos" width="200">
+  <img src="docs/images/lembrete.png" alt="Lembrete da última xícara antes de começar" width="200">
+</p>
 
 ---
 
@@ -36,11 +41,20 @@ Toque em *Iniciar preparo* junto com o primeiro despejo e em *Novo despejo* a ca
 **⭐ Lembrar de cada xícara**
 Todo preparo vai para o histórico com nota em estrelas, proporção, tempo e moagem. Gostou de um? Repita ou transforme em receita.
 
+**🧮 Calcular café e água na hora**
+Toque em *Calculadora* no topo da tela. Escolha a proporção (1:15, 1:16, 1:17, 1:2 do espresso ou a sua) e ajuste o café ou a água: o outro lado se calcula sozinho. O app também diz quanto chega à xícara e leva a dose direto para o preparo livre.
+
+**📸 Diário dos seus grãos**
+Na aba *Diário*, em *Grãos*, cadastre cada café que comprar: fotos do pacote (frente e verso), origem, variedade, processo, torra, lote, data da torra e notas de sabor. Cada grão mostra todos os preparos feitos com ele.
+
+**📝 O que mudar na próxima xícara**
+Ao salvar um preparo, escolha o grão e anote o que gostou e o que mudaria. Da próxima vez que for preparar aquele café, seja por uma receita ou no preparo livre, o app mostra o seu recado antes de começar.
+
 **🌱 Simples para quem está começando**
 As opções avançadas (temperatura, tempo-alvo, notas) ficam guardadas até você precisar delas.
 
 **🔒 Seus dados são seus**
-Nada sai do seu celular. Não precisa criar conta nem estar conectado à internet.
+Nada sai do seu celular, nem as fotos dos grãos. Não precisa criar conta nem estar conectado à internet.
 
 ---
 
@@ -50,7 +64,7 @@ Nada sai do seu celular. Não precisa criar conta nem estar conectado à interne
 2. Abra o arquivo baixado (fica nas notificações ou na pasta *Downloads*).
 3. Se o Android perguntar, permita instalar apps desta fonte e toque em **Instalar**.
 
-Funciona no Android 8.0 ou mais novo. Para atualizar, baixe e instale de novo pelo mesmo link: suas receitas e seu histórico continuam lá.
+Funciona no Android 8.0 ou mais novo. Para atualizar, baixe e instale de novo pelo mesmo link: suas receitas, seu histórico e seus grãos continuam lá.
 
 > O Android avisa sobre "app desconhecido" porque o Bloombrew ainda não está na Play Store. É normal.
 
@@ -80,10 +94,13 @@ Kotlin, Jetpack Compose (Material 3), Room (SQLite local), Navigation Compose e 
 app/src/main/java/com/heitoranglada/coffeeapp/
 ├── domain/   # regras puras: métodos, despejos, formatação, passos do preparo guiado
 ├── data/     # Room: entidades, DAOs, banco e repositório (+ receitas-modelo)
+│   └── journal/  # diário: grãos, anotações dos preparos e fotos (banco próprio, journal.db)
 └── ui/
     ├── recipes/    # lista, detalhe e cadastro de receitas
     ├── brew/       # timer: preparo guiado e preparo livre
-    ├── history/    # histórico de preparos
+    ├── history/    # diário: preparos e grãos
+    ├── journal/    # grãos (lista, detalhe, cadastro com fotos) e lembrete do próximo preparo
+    ├── calculator/ # calculadora de proporção
     └── components/ # formulário, ícones, animações e componentes compartilhados
 ```
 
