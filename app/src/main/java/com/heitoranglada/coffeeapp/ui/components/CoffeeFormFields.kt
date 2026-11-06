@@ -24,8 +24,17 @@ fun CoffeeFormFields(
     showRating: Boolean,
     timeLabel: String,
     poursHint: String,
+    /** No preparo livre os despejos vêm primeiro: é o que falta preencher. */
+    poursFirst: Boolean = false,
 ) {
+    val poursSection: @Composable () -> Unit = {
+        SectionCard("Despejos") {
+            Text(poursHint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            PoursEditor(form.pours, { onChange(form.copy(pours = it)) }, form.dose)
+        }
+    }
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        if (poursFirst) poursSection()
         SectionCard("Básico") {
             if (showName) {
                 FormTextField(form.name, { onChange(form.copy(name = it)) }, "Nome da receita", placeholder = "Ex.: V60 do sábado")
@@ -43,10 +52,7 @@ fun CoffeeFormFields(
             FormTextField(form.grindSetting, { onChange(form.copy(grindSetting = it)) }, "Ajuste de moagem", placeholder = "Ex.: 24 cliques / média-fina")
         }
 
-        SectionCard("Despejos") {
-            Text(poursHint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            PoursEditor(form.pours, { onChange(form.copy(pours = it)) }, form.dose)
-        }
+        if (!poursFirst) poursSection()
 
         if (showRating) {
             SectionCard("Como ficou?") {

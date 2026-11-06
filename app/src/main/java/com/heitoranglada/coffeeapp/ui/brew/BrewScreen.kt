@@ -383,6 +383,7 @@ private fun ReviewContent(state: BrewUiState, vm: BrewViewModel) {
             showRating = true,
             timeLabel = "Tempo total",
             poursHint = "Início de cada despejo (m:ss) e gramas de água despejadas.",
+            poursFirst = !state.isGuided,
         )
         SectionCard(if (state.isGuided) "Salvar como nova receita" else "Virar receita") {
             Row(verticalAlignment = Alignment.CenterVertically) {
