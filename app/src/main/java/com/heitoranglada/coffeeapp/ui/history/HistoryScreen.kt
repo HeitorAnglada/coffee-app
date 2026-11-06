@@ -259,7 +259,7 @@ private fun WeekStrip(brews: List<Brew>, modifier: Modifier = Modifier) {
                                 .size(12.dp)
                                 .popIn(200L + i * 60L + k * 80L)
                                 .clip(CircleShape)
-                                .background(if (today && m == BrewMethod.FRENCH_PRESS) Bloom.Cream else m.palette.bg),
+                                .background(if (today && (m == BrewMethod.FRENCH_PRESS || m == BrewMethod.ESPRESSO)) Bloom.Cream else m.palette.bg),
                         )
                     }
                 }
@@ -320,7 +320,8 @@ private fun BrewRow(brew: Brew, onClick: () -> Unit, modifier: Modifier = Modifi
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            val amounts = listOfNotNull(brew.doseGrams?.let(::formatGrams), brew.waterGrams.takeIf { it > 0 }?.let(::formatGrams)).joinToString(" → ")
+            val out = if (brew.method.isEspresso) brew.yieldGrams else brew.waterGrams.takeIf { it > 0 }
+            val amounts = listOfNotNull(brew.doseGrams?.let(::formatGrams), out?.let(::formatGrams)).joinToString(" → ")
             Text(
                 listOf(relativeWhen(brew.brewedAt), amounts).filter { it.isNotBlank() }.joinToString(" · "),
                 style = BloomType.bodySmall.copy(fontSize = 12.sp),
@@ -330,6 +331,10 @@ private fun BrewRow(brew: Brew, onClick: () -> Unit, modifier: Modifier = Modifi
             )
             if (brew.rating != null) MiniBeans(brew.rating, Modifier.padding(top = 6.dp))
         }
-        Text(formatDuration(brew.totalTimeSeconds), style = BloomType.display(24.sp, -0.02f), color = Bloom.Ink)
+        Text(
+            if (brew.method.isEspresso) "${(brew.shotSeconds ?: brew.totalTimeSeconds.toDouble()).toInt()} s" else formatDuration(brew.totalTimeSeconds),
+            style = BloomType.display(24.sp, -0.02f),
+            color = Bloom.Ink,
+        )
     }
 }

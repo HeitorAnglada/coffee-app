@@ -19,6 +19,9 @@ import com.heitoranglada.coffeeapp.ui.theme.Bloom
 import com.heitoranglada.coffeeapp.data.CoffeeRepository
 import com.heitoranglada.coffeeapp.domain.BrewMethod
 import com.heitoranglada.coffeeapp.domain.Pour
+import com.heitoranglada.coffeeapp.domain.StepKind
+import com.heitoranglada.coffeeapp.ui.components.withMethod
+import com.heitoranglada.coffeeapp.ui.recipes.RecipeEditViewModel
 import com.heitoranglada.coffeeapp.ui.CoffeeAppRoot
 import com.heitoranglada.coffeeapp.ui.brew.BrewPhase
 import com.heitoranglada.coffeeapp.ui.brew.BrewScreen
@@ -299,5 +302,80 @@ class ScreenshotTest {
         seedJournal()
         val vm = journalVm(0)
         show("17-livre-com-cafe") { BrewScreen(0, null, {}, vm = vm) }
+    }
+
+    @Test
+    fun a11_aeropress_detalhe() {
+        val id = recipeNamed("AeroPress campeã")
+        show("11-aeropress-detalhe") { RecipeDetailScreen(id, {}, {}, {}) }
+    }
+
+    @Test
+    fun a12_aeropress_prensando() {
+        val id = recipeNamed("AeroPress campeã")
+        val vm = readyVm(id)
+        vm.start()
+        idleMain(Duration.ofSeconds(72))
+        show("12-aeropress-prensando") { BrewScreen(id, {}, {}, vm = vm) }
+    }
+
+    @Test
+    fun a13_aeropress_livre() {
+        seeded()
+        val vm = readyVm(0)
+        vm.selectMethod(BrewMethod.AEROPRESS)
+        vm.start()
+        idleMain(Duration.ofSeconds(14))
+        vm.mark(StepKind.STIR)
+        idleMain(Duration.ofSeconds(38))
+        vm.mark(StepKind.FLIP)
+        idleMain(Duration.ofSeconds(12))
+        show("13-aeropress-livre") { BrewScreen(0, null, {}, vm = vm) }
+    }
+
+    @Test
+    fun a14_espresso_detalhe() {
+        val id = recipeId(BrewMethod.ESPRESSO)
+        show("14-espresso-detalhe") { RecipeDetailScreen(id, {}, {}, {}) }
+    }
+
+    @Test
+    fun a15_espresso_extraindo() {
+        val id = recipeId(BrewMethod.ESPRESSO)
+        val vm = readyVm(id)
+        vm.start()
+        idleMain(Duration.ofMillis(27_400))
+        show("15-espresso-extraindo") { BrewScreen(id, {}, {}, vm = vm) }
+    }
+
+    @Test
+    fun a16_espresso_depois() {
+        val id = recipeId(BrewMethod.ESPRESSO)
+        runBlocking {
+            val now = System.currentTimeMillis()
+            repo.saveBrew(Brew(recipeName = "Espresso da casa", method = BrewMethod.ESPRESSO, doseGrams = 18.0, yieldGrams = 34.0, shotSeconds = 19.2, totalTimeSeconds = 19, brewedAt = now - 600_000))
+            repo.saveBrew(Brew(recipeName = "Espresso da casa", method = BrewMethod.ESPRESSO, doseGrams = 18.0, yieldGrams = 36.0, shotSeconds = 24.1, totalTimeSeconds = 24, brewedAt = now - 300_000))
+        }
+        val vm = readyVm(id)
+        vm.start()
+        idleMain(Duration.ofMillis(27_400))
+        vm.finish()
+        waitUntil { vm.state.value.phase == BrewPhase.REVIEW }
+        vm.onFormChange(vm.state.value.form.copy(yieldText = "38", coffee = "Mogiana", grinder = "Eureka Mignon", grindSetting = "2,4", rating = 4))
+        show("16-espresso-depois") { BrewScreen(id, {}, {}, vm = vm) }
+    }
+
+    @Test
+    fun a17_nova_receita_espresso() {
+        seeded()
+        val vm = RecipeEditViewModel(repo, 0, 0)
+        waitUntil { !vm.state.value.loading }
+        vm.onFormChange(vm.state.value.form.withMethod(BrewMethod.ESPRESSO).copy(name = "Espresso da casa", coffee = "Mogiana, torra média"))
+        show("17-nova-receita-espresso") { RecipeEditScreen(0, 0, {}, {}, vm = vm) }
+    }
+
+    private fun recipeNamed(name: String): Long = runBlocking {
+        seeded()
+        repo.observeRecipes().first().first { it.name == name }.id
     }
 }

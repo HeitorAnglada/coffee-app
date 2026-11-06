@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.heitoranglada.coffeeapp.data.CoffeeRepository
 import com.heitoranglada.coffeeapp.data.Recipe
+import com.heitoranglada.coffeeapp.domain.BrewMethod
+import com.heitoranglada.coffeeapp.ui.components.windowMax
+import com.heitoranglada.coffeeapp.ui.components.windowMin
 import com.heitoranglada.coffeeapp.domain.formatDuration
 import com.heitoranglada.coffeeapp.domain.formatNumber
 import com.heitoranglada.coffeeapp.ui.components.CoffeeForm
@@ -76,6 +79,11 @@ class RecipeEditViewModel(
                         waterTempText = r.waterTempC?.toString().orEmpty(),
                         timeText = r.targetTimeSeconds?.let(::formatDuration).orEmpty(),
                         notes = r.notes,
+                        inverted = r.inverted,
+                        yieldText = r.yieldGrams?.let(::formatNumber).orEmpty(),
+                        windowMin = r.windowMin,
+                        windowMax = r.windowMax,
+                        preInfusionText = r.preInfusionSeconds?.toString().orEmpty(),
                     )
                 }
                 fromBrewId != 0L -> repo.getBrew(fromBrewId)?.let { b ->
@@ -88,8 +96,9 @@ class RecipeEditViewModel(
                         doseText = b.doseGrams?.let(::formatNumber).orEmpty(),
                         pours = b.pours.map(PourInput::from).ifEmpty { listOf(PourInput("0:00", "")) },
                         waterTempText = b.waterTempC?.toString().orEmpty(),
-                        timeText = b.totalTimeSeconds.takeIf { it > 0 }?.let(::formatDuration).orEmpty(),
+                        timeText = if (b.method.isEspresso) "" else b.totalTimeSeconds.takeIf { it > 0 }?.let(::formatDuration).orEmpty(),
                         notes = b.notes,
+                        yieldText = b.yieldGrams?.let(::formatNumber).orEmpty(),
                     )
                 }
                 else -> null
@@ -118,8 +127,13 @@ class RecipeEditViewModel(
             doseGrams = form.dose,
             pours = form.parsedPours,
             waterTempC = form.waterTemp,
-            targetTimeSeconds = form.timeSeconds,
+            targetTimeSeconds = if (form.method.isEspresso) null else form.timeSeconds,
             notes = form.notes.trim(),
+            inverted = form.inverted && form.method == BrewMethod.AEROPRESS,
+            yieldGrams = if (form.method.isEspresso) form.yieldGrams else null,
+            windowMinSeconds = if (form.method.isEspresso) form.windowMin else null,
+            windowMaxSeconds = if (form.method.isEspresso) form.windowMax else null,
+            preInfusionSeconds = if (form.method.isEspresso) form.preInfusion else null,
             createdAt = base?.createdAt ?: System.currentTimeMillis(),
         )
         viewModelScope.launch {

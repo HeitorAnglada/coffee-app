@@ -40,11 +40,16 @@ object Bloom {
 /** Cores de um método: fundo, conteúdo, fundo das pílulas e destaque. */
 data class MethodPalette(val bg: Color, val fg: Color, val chip: Color, val accent: Color)
 
+/** Fundo escuro (prensa, espresso): o que costuma ser tinta vira creme. */
+val MethodPalette.isDark: Boolean get() = fg == Bloom.Cream
+
 val BrewMethod.palette: MethodPalette
     get() = when (this) {
         BrewMethod.V60 -> MethodPalette(Bloom.Terra, Bloom.Ink, Bloom.Cream.copy(alpha = 0.35f), Bloom.Mustard)
         BrewMethod.MELITTA -> MethodPalette(Bloom.Mustard, Bloom.Ink, Bloom.Cream.copy(alpha = 0.45f), Bloom.Terra)
         BrewMethod.FRENCH_PRESS -> MethodPalette(Bloom.Green, Bloom.Cream, Bloom.Cream.copy(alpha = 0.16f), Bloom.Mustard)
+        BrewMethod.AEROPRESS -> MethodPalette(Bloom.Peach, Bloom.Ink, Bloom.Cream.copy(alpha = 0.35f), Bloom.Terra)
+        BrewMethod.ESPRESSO -> MethodPalette(Bloom.Ink, Bloom.Cream, Bloom.Cream.copy(alpha = 0.14f), Bloom.Mustard)
     }
 
 val Bricolage = FontFamily(
