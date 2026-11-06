@@ -361,7 +361,7 @@ fun MethodTiles(selected: BrewMethod, onSelect: (BrewMethod) -> Unit) {
                     m, p.fg.copy(alpha = 0.3f),
                     Modifier.size(80.dp).align(Alignment.TopEnd).offset(x = 14.dp, y = (-6).dp).sway(5f, 4000 + m.ordinal * 700),
                 )
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     on,
                     enter = scaleIn(spring(dampingRatio = 0.4f)) + fadeIn(),
                     exit = scaleOut() + fadeOut(),
