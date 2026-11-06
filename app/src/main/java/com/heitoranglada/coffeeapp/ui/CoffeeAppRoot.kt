@@ -1,19 +1,33 @@
 package com.heitoranglada.coffeeapp.ui
 
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
-import com.heitoranglada.coffeeapp.R
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -22,12 +36,16 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.heitoranglada.coffeeapp.R
 import com.heitoranglada.coffeeapp.ui.brew.BrewScreen
+import com.heitoranglada.coffeeapp.ui.components.FloatingNavBar
+import com.heitoranglada.coffeeapp.ui.components.NavTab
 import com.heitoranglada.coffeeapp.ui.history.BrewDetailScreen
 import com.heitoranglada.coffeeapp.ui.history.HistoryScreen
 import com.heitoranglada.coffeeapp.ui.recipes.RecipeDetailScreen
 import com.heitoranglada.coffeeapp.ui.recipes.RecipeEditScreen
 import com.heitoranglada.coffeeapp.ui.recipes.RecipeListScreen
+import com.heitoranglada.coffeeapp.ui.theme.Bloom
 
 private object Routes {
     const val RECIPES = "recipes"
@@ -44,43 +62,58 @@ private object Routes {
     fun brewDetail(id: Long) = "history/$id"
 }
 
-private data class Tab(val route: String, val label: String, val icon: Int)
-
 private val tabs = listOf(
-    Tab(Routes.RECIPES, "Receitas", R.drawable.ic_bb_recipes),
-    Tab(Routes.FREE_BREW, "Preparo livre", R.drawable.ic_bb_timer),
-    Tab(Routes.HISTORY, "Histórico", R.drawable.ic_bb_history),
+    NavTab(Routes.RECIPES, "Receitas", R.drawable.ic_bb_recipes),
+    NavTab(Routes.FREE_BREW, "Livre", R.drawable.ic_bb_timer),
+    NavTab(Routes.HISTORY, "Histórico", R.drawable.ic_bb_history),
 )
+private val tabRoutes = tabs.map { it.route }.toSet()
 
-@OptIn(ExperimentalLayoutApi::class)
+private fun NavBackStackEntry.isTab() = destination.route in tabRoutes
+
+/*
+ * Transições: entre abas, a tela troca com um leve zoom; ao abrir um detalhe, ele sobe por cima
+ * e a tela de trás afunda um pouco. Voltar faz o caminho inverso.
+ */
+private val springOffset = spring<IntOffset>(dampingRatio = 0.85f, stiffness = 380f)
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.enter(): EnterTransition =
+    if (initialState.isTab() && targetState.isTab()) {
+        fadeIn(tween(260, delayMillis = 60)) + scaleIn(tween(320, easing = FastOutSlowInEasing), initialScale = 0.96f)
+    } else {
+        slideInVertically(springOffset) { it / 5 } + fadeIn(tween(260))
+    }
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.exit(): ExitTransition =
+    if (initialState.isTab() && targetState.isTab()) {
+        fadeOut(tween(160))
+    } else {
+        fadeOut(tween(220)) + scaleOut(tween(300), targetScale = 0.94f)
+    }
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.popEnter(): EnterTransition =
+    fadeIn(tween(260)) + scaleIn(tween(320, easing = FastOutSlowInEasing), initialScale = 0.94f)
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.popExit(): ExitTransition =
+    slideOutVertically(tween(260)) { it / 5 } + fadeOut(tween(200))
+
 @Composable
 fun CoffeeAppRoot() {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
-    val showBottomBar = tabs.any { it.route == currentRoute }
+    var brewing by remember { mutableStateOf(false) }
+    val showBar = currentRoute in tabRoutes && !brewing
 
-    Scaffold(
-        contentWindowInsets = WindowInsets(0),
-        bottomBar = {
-            if (showBottomBar) {
-                NavigationBar {
-                    tabs.forEach { tab ->
-                        NavigationBarItem(
-                            selected = currentRoute == tab.route,
-                            onClick = { nav.switchTab(tab.route) },
-                            icon = { Icon(painterResource(tab.icon), contentDescription = null) },
-                            label = { Text(tab.label) },
-                        )
-                    }
-                }
-            }
-        },
-    ) { innerPadding ->
+    Box(Modifier.fillMaxSize().background(Bloom.Cream)) {
         NavHost(
             navController = nav,
             startDestination = Routes.RECIPES,
-            modifier = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding),
+            modifier = Modifier.fillMaxSize(),
+            enterTransition = { enter() },
+            exitTransition = { exit() },
+            popEnterTransition = { popEnter() },
+            popExitTransition = { popExit() },
         ) {
             composable(Routes.RECIPES) {
                 RecipeListScreen(
@@ -94,6 +127,7 @@ fun CoffeeAppRoot() {
                     recipeId = 0,
                     onBack = null,
                     onSaved = { brewId -> nav.openSavedBrew(brewId) },
+                    onImmersive = { brewing = it },
                 )
             }
             composable(Routes.HISTORY) {
@@ -150,6 +184,23 @@ fun CoffeeAppRoot() {
                     onBrewAgain = { nav.navigate(Routes.guidedBrew(it)) },
                 )
             }
+        }
+
+        AnimatedVisibility(
+            visible = showBar,
+            enter = slideInVertically(spring(dampingRatio = 0.6f, stiffness = 300f)) { it * 2 } + fadeIn(),
+            exit = slideOutVertically(tween(220)) { it * 2 } + fadeOut(tween(180)),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 18.dp),
+        ) {
+            FloatingNavBar(
+                tabs = tabs,
+                current = currentRoute,
+                onSelect = { nav.switchTab(it) },
+                onAdd = { nav.navigate(Routes.recipeEdit()) },
+            )
         }
     }
 }

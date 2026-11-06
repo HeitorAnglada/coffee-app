@@ -1,7 +1,5 @@
 package com.heitoranglada.coffeeapp.ui.recipes
 
-import com.heitoranglada.coffeeapp.data.waterGrams
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,47 +7,67 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.heitoranglada.coffeeapp.data.Recipe
+import com.heitoranglada.coffeeapp.data.waterGrams
+import com.heitoranglada.coffeeapp.domain.BrewMethod
 import com.heitoranglada.coffeeapp.domain.formatDuration
 import com.heitoranglada.coffeeapp.domain.formatGrams
-import com.heitoranglada.coffeeapp.domain.formatRatio
-import com.heitoranglada.coffeeapp.ui.components.GrinderAnimation
-import com.heitoranglada.coffeeapp.ui.components.LogoMark
+import com.heitoranglada.coffeeapp.ui.components.BigPillButton
+import com.heitoranglada.coffeeapp.ui.components.Blob
+import com.heitoranglada.coffeeapp.ui.components.MethodChips
+import com.heitoranglada.coffeeapp.ui.components.MethodSilhouette
+import com.heitoranglada.coffeeapp.ui.components.Pill
+import com.heitoranglada.coffeeapp.ui.components.Wordmark
+import com.heitoranglada.coffeeapp.ui.components.bouncyClick
 import com.heitoranglada.coffeeapp.ui.components.enterCascade
-import com.heitoranglada.coffeeapp.ui.components.iconRes
+import com.heitoranglada.coffeeapp.ui.components.overlapNext
+import com.heitoranglada.coffeeapp.ui.components.sway
 import com.heitoranglada.coffeeapp.ui.repoViewModelFactory
+import com.heitoranglada.coffeeapp.ui.theme.Bloom
+import com.heitoranglada.coffeeapp.ui.theme.BloomType
+import com.heitoranglada.coffeeapp.ui.theme.palette
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** Espaço no fim das listas para a barra de navegação flutuante. */
+val FloatingNavSpace = 110.dp
+
 @Composable
 fun RecipeListScreen(
     onOpenRecipe: (Long) -> Unit,
@@ -58,91 +76,142 @@ fun RecipeListScreen(
     vm: RecipeListViewModel = viewModel(factory = repoViewModelFactory { RecipeListViewModel(it) }),
 ) {
     val recipes by vm.recipes.collectAsStateWithLifecycle()
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        LogoMark(Modifier.size(32.dp))
-                        Spacer(Modifier.width(10.dp))
-                        Text("Receitas", style = MaterialTheme.typography.headlineSmall)
-                    }
-                },
-            )
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onNewRecipe,
-                containerColor = MaterialTheme.colorScheme.secondary,
-                contentColor = MaterialTheme.colorScheme.onSecondary,
-                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                text = { Text("Nova receita") },
-            )
-        },
-    ) { padding ->
-        val list = recipes
-        when {
-            list == null -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                GrinderAnimation(Modifier.size(120.dp))
-            }
-            list.isEmpty() -> Column(
-                Modifier.fillMaxSize().padding(padding).padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                GrinderAnimation(Modifier.size(140.dp))
+    var filter by rememberSaveable { mutableStateOf<BrewMethod?>(null) }
+    val shown = recipes?.filter { filter == null || it.method == filter }
+    val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
+    LazyColumn(
+        Modifier.fillMaxSize().background(Bloom.Cream),
+        contentPadding = PaddingValues(bottom = FloatingNavSpace + navBottom),
+    ) {
+        item(key = "header") {
+            Column(Modifier.statusBarsPadding().padding(start = 22.dp, end = 22.dp, top = 26.dp, bottom = 18.dp)) {
+                Wordmark(Modifier.enterCascade(0))
                 Text(
-                    "Nenhuma receita ainda.\nCadastre uma receita ou faça um preparo livre e salve como receita.",
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.bodyLarge,
+                    buildAnnotatedString {
+                        append("O que vamos\npassar ")
+                        withStyle(SpanStyle(color = Bloom.Terra)) { append("hoje?") }
+                    },
+                    style = BloomType.display(44.sp, -0.035f),
+                    color = Bloom.Ink,
+                    modifier = Modifier.padding(top = 12.dp).enterCascade(1),
                 )
+                MethodChips(filter, { filter = it }, Modifier.padding(top = 18.dp).enterCascade(2), showAll = true)
             }
-            else -> LazyColumn(
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding() + 8.dp, bottom = padding.calculateBottomPadding() + 88.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                itemsIndexed(list, key = { _, it -> it.id }) { index, recipe ->
-                    RecipeCard(recipe, Modifier.enterCascade(index), onClick = { onOpenRecipe(recipe.id) }, onBrew = { onBrewRecipe(recipe.id) })
+        }
+        when {
+            shown == null -> item(key = "loading") {
+                Box(Modifier.fillMaxWidth().padding(top = 60.dp), contentAlignment = Alignment.Center) {
+                    Blob(Bloom.Terra, Modifier.size(120.dp), periodMs = 2000, wobble = 0.12f)
                 }
+            }
+            shown.isEmpty() -> item(key = "empty") {
+                EmptyRecipes(filtered = filter != null, onNewRecipe = onNewRecipe)
+            }
+            else -> itemsIndexed(shown, key = { _, r -> r.id }) { index, recipe ->
+                RecipeStackCard(
+                    recipe = recipe,
+                    isLast = index == shown.lastIndex,
+                    onOpen = { onOpenRecipe(recipe.id) },
+                    onBrew = { onBrewRecipe(recipe.id) },
+                    modifier = Modifier
+                        .animateItem()
+                        .enterCascade(index + 2, distance = 60.dp),
+                )
             }
         }
     }
 }
 
+/** Cartão colorido do método. Os cartões se empilham, cada um cobrindo a base do anterior. */
 @Composable
-private fun RecipeCard(recipe: Recipe, modifier: Modifier, onClick: () -> Unit, onBrew: () -> Unit) {
-    Card(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+private fun RecipeStackCard(
+    recipe: Recipe,
+    isLast: Boolean,
+    onOpen: () -> Unit,
+    onBrew: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val p = recipe.method.palette
+    val shape = RoundedCornerShape(30.dp)
+    Box(
+        modifier
+            .overlapNext(if (isLast) 0.dp else 44.dp)
+            .padding(horizontal = 14.dp)
+            .fillMaxWidth()
+            .height(214.dp)
+            .bouncyClick(pressedScale = 0.97f, onClickLabel = "Abrir receita", onClick = onOpen)
+            .shadow(14.dp, shape, ambientColor = Bloom.Ink, spotColor = Bloom.Ink)
+            .clip(shape)
+            .background(p.bg),
     ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.size(48.dp).background(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.shapes.medium),
-                contentAlignment = Alignment.Center,
-            ) { Image(painterResource(recipe.method.iconRes()), contentDescription = null, modifier = Modifier.size(30.dp)) }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(recipe.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(recipe.method.label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        listOfNotNull(
-                            recipe.doseGrams?.let { "${formatGrams(it)} → ${formatGrams(recipe.waterGrams)}" },
-                            formatRatio(recipe.doseGrams, recipe.waterGrams),
-                            recipe.targetTimeSeconds?.let { formatDuration(it) },
-                        ).joinToString(" · "),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                if (recipe.coffee.isNotBlank()) {
-                    Text(recipe.coffee, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+        MethodSilhouette(
+            recipe.method,
+            p.fg.copy(alpha = 0.18f),
+            Modifier
+                .size(190.dp)
+                .align(Alignment.TopEnd)
+                .offset(x = 36.dp, y = (-10).dp)
+                .sway(4f, 5000 + (recipe.id % 3).toInt() * 600),
+        )
+        Column(Modifier.padding(20.dp)) {
+            Text(recipe.method.label.uppercase(), style = BloomType.eyebrow, color = p.fg.copy(alpha = 0.75f))
+            Text(
+                recipe.name,
+                style = BloomType.display(28.sp, -0.03f),
+                color = p.fg,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 4.dp, end = 40.dp),
+            )
+            if (recipe.coffee.isNotBlank()) {
+                Text(recipe.coffee, style = BloomType.bodySmall, color = p.fg.copy(alpha = 0.8f), maxLines = 1, modifier = Modifier.padding(top = 6.dp))
             }
-            FilledIconButton(onClick = onBrew, shape = MaterialTheme.shapes.medium) {
-                Icon(Icons.Filled.PlayArrow, contentDescription = "Preparar ${recipe.name}")
+            Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                recipe.doseGrams?.let { Pill(formatGrams(it), p.chip, contentColor = p.fg, height = 30.dp) }
+                if (recipe.waterGrams > 0) Pill(formatGrams(recipe.waterGrams), p.chip, contentColor = p.fg, height = 30.dp)
+                recipe.targetTimeSeconds?.let { Pill(formatDuration(it), p.chip, contentColor = p.fg, height = 30.dp) }
             }
         }
+        Box(
+            Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 18.dp, bottom = 62.dp)
+                .size(58.dp)
+                .bouncyClick(pressedScale = 0.85f, onClickLabel = "Preparar", onClick = onBrew)
+                .clip(CircleShape)
+                .background(p.fg)
+                .semantics { contentDescription = "Preparar ${recipe.name}" },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Filled.PlayArrow, null, tint = p.bg, modifier = Modifier.size(28.dp))
+        }
+    }
+}
+
+@Composable
+private fun EmptyRecipes(filtered: Boolean, onNewRecipe: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Blob(Bloom.Mustard, Modifier.size(170.dp).enterCascade(0)) {
+            MethodSilhouette(BrewMethod.V60, Bloom.Ink, Modifier.size(80.dp).sway())
+        }
+        Text(
+            if (filtered) "Nenhuma receita com esse método." else "Seu caderno de receitas está vazio.",
+            style = BloomType.display(22.sp, -0.02f),
+            color = Bloom.Ink,
+            textAlign = TextAlign.Center,
+        )
+        Text(
+            "Cadastre a primeira ou faça um preparo livre e salve como receita.",
+            style = BloomType.body,
+            color = Bloom.Body,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(4.dp))
+        BigPillButton("Criar receita", onNewRecipe)
     }
 }
