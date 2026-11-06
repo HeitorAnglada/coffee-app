@@ -61,6 +61,7 @@ import com.heitoranglada.coffeeapp.ui.components.enterCascade
 import com.heitoranglada.coffeeapp.ui.components.overlapNext
 import com.heitoranglada.coffeeapp.ui.components.sway
 import com.heitoranglada.coffeeapp.ui.repoViewModelFactory
+import com.heitoranglada.coffeeapp.ui.calculator.CalculatorPill
 import com.heitoranglada.coffeeapp.ui.theme.Bloom
 import com.heitoranglada.coffeeapp.ui.theme.BloomType
 import com.heitoranglada.coffeeapp.ui.theme.palette
@@ -73,6 +74,7 @@ fun RecipeListScreen(
     onOpenRecipe: (Long) -> Unit,
     onBrewRecipe: (Long) -> Unit,
     onNewRecipe: () -> Unit,
+    onOpenCalculator: () -> Unit = {},
     vm: RecipeListViewModel = viewModel(factory = repoViewModelFactory { RecipeListViewModel(it) }),
 ) {
     val recipes by vm.recipes.collectAsStateWithLifecycle()
@@ -86,7 +88,10 @@ fun RecipeListScreen(
     ) {
         item(key = "header") {
             Column(Modifier.statusBarsPadding().padding(start = 22.dp, end = 22.dp, top = 26.dp, bottom = 18.dp)) {
-                Wordmark(Modifier.enterCascade(0))
+                Row(Modifier.fillMaxWidth().enterCascade(0), verticalAlignment = Alignment.CenterVertically) {
+                    Wordmark(Modifier.weight(1f))
+                    CalculatorPill(null, onOpenCalculator)
+                }
                 Text(
                     buildAnnotatedString {
                         append("O que vamos\npassar ")

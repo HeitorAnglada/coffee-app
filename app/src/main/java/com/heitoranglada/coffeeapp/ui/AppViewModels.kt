@@ -14,3 +14,10 @@ inline fun <reified VM : ViewModel> repoViewModelFactory(
 ): ViewModelProvider.Factory = viewModelFactory {
     initializer { create((this[APPLICATION_KEY] as CoffeeApplication).repository) }
 }
+
+/** Factory que recebe o app inteiro (repositório, diário e calculadora). */
+inline fun <reified VM : ViewModel> appViewModelFactory(
+    crossinline create: (CoffeeApplication) -> VM,
+): ViewModelProvider.Factory = viewModelFactory {
+    initializer { create(this[APPLICATION_KEY] as CoffeeApplication) }
+}

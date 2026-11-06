@@ -120,7 +120,14 @@ import com.heitoranglada.coffeeapp.ui.components.rememberLoop
 import com.heitoranglada.coffeeapp.ui.components.wiggle
 import com.heitoranglada.coffeeapp.ui.recipes.FloatingNavSpace
 import com.heitoranglada.coffeeapp.ui.recipes.pourHint
-import com.heitoranglada.coffeeapp.ui.repoViewModelFactory
+import com.heitoranglada.coffeeapp.ui.appViewModelFactory
+import com.heitoranglada.coffeeapp.data.journal.BeanReminder
+import com.heitoranglada.coffeeapp.ui.journal.BeanPills
+import com.heitoranglada.coffeeapp.ui.journal.BeanTiles
+import com.heitoranglada.coffeeapp.ui.journal.DiaryFields
+import com.heitoranglada.coffeeapp.ui.journal.ReminderCard
+import com.heitoranglada.coffeeapp.ui.journal.ReminderStrip
+import com.heitoranglada.coffeeapp.ui.calculator.CalculatorPill
 import com.heitoranglada.coffeeapp.ui.theme.Bloom
 import com.heitoranglada.coffeeapp.ui.theme.BloomType
 import com.heitoranglada.coffeeapp.ui.theme.palette
@@ -137,9 +144,11 @@ fun BrewScreen(
     onBack: (() -> Unit)?,
     onSaved: (Long) -> Unit,
     onImmersive: (Boolean) -> Unit = {},
+    onOpenCalculator: () -> Unit = {},
+    onNewBean: () -> Unit = {},
     vm: BrewViewModel = viewModel(
         key = "brew-$recipeId",
-        factory = repoViewModelFactory { BrewViewModel(it, recipeId) },
+        factory = appViewModelFactory { BrewViewModel(it.repository, recipeId, it.journal, it.calculator) },
     ),
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -191,13 +200,18 @@ fun BrewScreen(
                 when (phase) {
                     BrewPhase.READY -> {
                         val recipe = state.recipe
-                        if (recipe != null) GuidedReady(recipe, onBack, vm::start) else FreeReady(state.method, vm::selectMethod, vm::start)
+                        val reminder = state.reminder.takeUnless { state.reminderDismissed }
+                        if (recipe != null) {
+                            GuidedReady(recipe, onBack, vm::start, reminder, vm::dismissReminder)
+                        } else {
+                            FreeReady(state, vm::selectMethod, vm::start, vm::selectBean, onOpenCalculator)
+                        }
                     }
                     BrewPhase.RUNNING -> {
                         val recipe = state.recipe
                         if (recipe != null) GuidedRunning(recipe, vm) { confirmDiscard = true } else FreeRunning(state, vm)
                     }
-                    BrewPhase.REVIEW -> ReviewContent(state, vm) { confirmDiscard = true }
+                    BrewPhase.REVIEW -> ReviewContent(state, vm, onNewBean) { confirmDiscard = true }
                 }
             }
         }
@@ -241,7 +255,13 @@ private fun StartBloom(color: Color, contentColor: Color, halo: Color, onClick: 
 }
 
 @Composable
-private fun GuidedReady(recipe: Recipe, onBack: (() -> Unit)?, onStart: () -> Unit) {
+private fun GuidedReady(
+    recipe: Recipe,
+    onBack: (() -> Unit)?,
+    onStart: () -> Unit,
+    reminder: BeanReminder? = null,
+    onDismissReminder: () -> Unit = {},
+) {
     val p = recipe.method.palette
     Column(
         Modifier
@@ -262,6 +282,14 @@ private fun GuidedReady(recipe: Recipe, onBack: (() -> Unit)?, onStart: () -> Un
             if (recipe.waterGrams > 0) Pill("${formatGrams(recipe.waterGrams)} de água", p.chip, contentColor = p.fg)
             recipe.targetTimeSeconds?.let { Pill(formatDuration(it), p.chip, contentColor = p.fg) }
         }
+        // Lembrete do diário: o que mudar desta vez com este café.
+        AnimatedVisibility(
+            reminder != null,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically() + scaleOut(targetScale = 0.9f),
+        ) {
+            reminder?.let { ReminderCard(it, onDismissReminder, Modifier.padding(top = 18.dp)) }
+        }
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             StartBloom(Bloom.Cream, Bloom.Ink, Bloom.Cream.copy(alpha = 0.25f), onStart)
         }
@@ -276,7 +304,14 @@ private fun GuidedReady(recipe: Recipe, onBack: (() -> Unit)?, onStart: () -> Un
 }
 
 @Composable
-private fun FreeReady(method: BrewMethod, onSelect: (BrewMethod) -> Unit, onStart: () -> Unit) {
+private fun FreeReady(
+    state: BrewUiState,
+    onSelect: (BrewMethod) -> Unit,
+    onStart: () -> Unit,
+    onSelectBean: (Long?) -> Unit = {},
+    onOpenCalculator: () -> Unit = {},
+) {
+    val method = state.method
     val p = method.palette
     val color by animateColorAsState(p.bg, tween(450), label = "start-color")
     val content by animateColorAsState(p.fg, tween(450), label = "start-fg")
@@ -287,7 +322,10 @@ private fun FreeReady(method: BrewMethod, onSelect: (BrewMethod) -> Unit, onStar
             .statusBarsPadding()
             .padding(start = 22.dp, end = 22.dp, top = 26.dp, bottom = FloatingNavSpace + navBottom),
     ) {
-        Wordmark(Modifier.enterCascade(0))
+        Row(Modifier.fillMaxWidth().enterCascade(0), verticalAlignment = Alignment.CenterVertically) {
+            Wordmark(Modifier.weight(1f))
+            CalculatorPill(state.plan, onOpenCalculator)
+        }
         Text(
             buildAnnotatedString {
                 append("Sem receita,\n")
@@ -298,6 +336,18 @@ private fun FreeReady(method: BrewMethod, onSelect: (BrewMethod) -> Unit, onStar
             modifier = Modifier.padding(top = 12.dp).enterCascade(1),
         )
         MethodChips(method, { it?.let(onSelect) }, Modifier.padding(top = 18.dp).enterCascade(2))
+        if (state.beans.isNotEmpty()) {
+            Text("Com qual café?", style = BloomType.label, color = Bloom.Muted, modifier = Modifier.padding(top = 16.dp).enterCascade(3))
+            BeanPills(state.beans, state.selectedBeanId, onSelectBean, Modifier.padding(top = 6.dp).enterCascade(3))
+        }
+        val reminder = state.reminder.takeIf { state.selectedBeanId != null }
+        AnimatedVisibility(
+            reminder != null,
+            enter = fadeIn() + expandVertically() + scaleIn(initialScale = 0.9f),
+            exit = fadeOut() + shrinkVertically(),
+        ) {
+            reminder?.let { ReminderStrip(it, Modifier.padding(top = 14.dp)) }
+        }
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             StartBloom(color, content, color.copy(alpha = 0.25f), onStart)
         }
@@ -582,7 +632,7 @@ private fun FreeRunning(state: BrewUiState, vm: BrewViewModel) {
 }
 
 @Composable
-private fun ReviewContent(state: BrewUiState, vm: BrewViewModel, onDiscard: () -> Unit) {
+private fun ReviewContent(state: BrewUiState, vm: BrewViewModel, onNewBean: () -> Unit, onDiscard: () -> Unit) {
     val coffees by vm.coffees.collectAsStateWithLifecycle()
     val grinders by vm.grinders.collectAsStateWithLifecycle()
     val form = state.form
@@ -628,6 +678,10 @@ private fun ReviewContent(state: BrewUiState, vm: BrewViewModel, onDiscard: () -
 
             SectionTitle("Café e moagem")
             if (!state.isGuided) Text("Já preenchi com o último preparo.", style = BloomType.bodySmall, color = Bloom.Muted)
+            if (state.beans.isNotEmpty()) {
+                Text("Qual café?", style = BloomType.label, color = Bloom.Muted)
+                BeanTiles(state.beans, state.selectedBeanId, vm::selectReviewBean, onNewBean)
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PillField(form.coffee, { onChange(form.copy(coffee = it)) }, Modifier.weight(1.5f), label = "Café", placeholder = "Qual café?")
                 PillField(form.doseText, { onChange(form.copy(doseText = it)) }, Modifier.weight(1f), label = "Dose", placeholder = "15", suffix = "g", keyboardType = KeyboardType.Decimal)
@@ -642,7 +696,9 @@ private fun ReviewContent(state: BrewUiState, vm: BrewViewModel, onDiscard: () -
             SectionTitle("Como ficou?")
             BeanRating(form.rating, { onChange(form.copy(rating = it)) })
 
-            ExpandableCard("Mais opções", "temperatura, tempo total e notas") {
+            DiaryFields(state.liked, state.change, vm::setLiked, vm::setChange, state.selectedBean?.name, form.coffee)
+
+            ExpandableCard("Mais opções", "temperatura, tempo total e outras notas") {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     PillField(form.waterTempText, { onChange(form.copy(waterTempText = it)) }, Modifier.weight(1f), label = "Temperatura", placeholder = "93", suffix = "°C", keyboardType = KeyboardType.Number)
                     PillField(form.timeText, { onChange(form.copy(timeText = it)) }, Modifier.weight(1f), label = "Tempo total", placeholder = "3:00")

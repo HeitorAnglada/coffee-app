@@ -4,6 +4,11 @@ import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.heitoranglada.coffeeapp.data.Brew
+import com.heitoranglada.coffeeapp.data.CalculatorStore
+import com.heitoranglada.coffeeapp.data.journal.Bean
+import com.heitoranglada.coffeeapp.data.journal.BeanReminder
+import com.heitoranglada.coffeeapp.data.journal.JournalRepository
+import com.heitoranglada.coffeeapp.domain.CalcState
 import com.heitoranglada.coffeeapp.data.CoffeeRepository
 import com.heitoranglada.coffeeapp.data.Recipe
 import com.heitoranglada.coffeeapp.domain.BrewMethod
@@ -39,7 +44,20 @@ data class BrewUiState(
     val errors: List<String> = emptyList(),
     /** Id do preparo salvo (evento para navegar). */
     val savedBrewId: Long? = null,
+    /** Grãos do diário, para escolher o café. */
+    val beans: List<Bean> = emptyList(),
+    val selectedBeanId: Long? = null,
+    /** Última anotação daquele café, mostrada antes de começar. */
+    val reminder: BeanReminder? = null,
+    val reminderDismissed: Boolean = false,
+    /** Diário da xícara. */
+    val liked: String = "",
+    val change: String = "",
+    /** Conta da calculadora escolhida para este preparo livre. */
+    val plan: CalcState? = null,
 ) {
+    val selectedBean: Bean? get() = beans.firstOrNull { it.id == selectedBeanId }
+
     val isGuided: Boolean get() = recipe != null
 }
 
@@ -48,7 +66,12 @@ data class BrewUiState(
  * - Preparo guiado (recipeId != 0): mostra os despejos da receita no tempo certo.
  * - Preparo livre (recipeId == 0): a pessoa marca cada despejo e informa as gramas no final.
  */
-class BrewViewModel(private val repo: CoffeeRepository, private val recipeId: Long) : ViewModel() {
+class BrewViewModel(
+    private val repo: CoffeeRepository,
+    private val recipeId: Long,
+    private val journal: JournalRepository? = null,
+    private val calc: CalculatorStore? = null,
+) : ViewModel() {
 
     private val _state = MutableStateFlow(BrewUiState())
     val state: StateFlow<BrewUiState> = _state.asStateFlow()
@@ -70,7 +93,69 @@ class BrewViewModel(private val repo: CoffeeRepository, private val recipeId: Lo
             _state.update {
                 it.copy(loading = false, recipe = recipe, method = recipe?.method ?: lastMethod ?: BrewMethod.V60)
             }
+            // Café da receita (guiado) ou do último preparo (livre): já vem escolhido, com o lembrete.
+            val j = journal ?: return@launch
+            val coffee = recipe?.coffee ?: repo.getLatestBrew()?.coffee.orEmpty()
+            val bean = j.findBeanByName(coffee)
+            if (_state.value.selectedBeanId == null) {
+                _state.update { it.copy(selectedBeanId = bean?.id) }
+                loadReminder()
+            }
         }
+        journal?.let { j ->
+            viewModelScope.launch { j.observeBeans().collect { list -> _state.update { it.copy(beans = list) } } }
+            if (recipeId == 0L) {
+                // "Preparar este café" no diário: o preparo livre já começa com o grão escolhido.
+                viewModelScope.launch {
+                    j.pendingBean.collect { id ->
+                        if (id != null) {
+                            j.consumePendingBean()
+                            if (_state.value.phase == BrewPhase.READY) selectBean(id)
+                        }
+                    }
+                }
+            }
+        }
+        if (recipeId == 0L) {
+            calc?.let { c -> viewModelScope.launch { c.plan.collect { p -> _state.update { it.copy(plan = p) } } } }
+        }
+    }
+
+    /** Busca a última anotação do café escolhido (ou do café da receita). */
+    private suspend fun loadReminder() {
+        val j = journal ?: return
+        val s = _state.value
+        val bean = s.selectedBeanId?.let { j.getBean(it) }
+        val reminder = when {
+            bean != null -> j.reminderFor(bean)
+            s.recipe != null -> j.reminderForCoffee(s.recipe.coffee)
+            else -> null
+        }
+        _state.update { it.copy(reminder = reminder, reminderDismissed = false) }
+    }
+
+    /** Escolhe o café do preparo (null = nenhum). */
+    fun selectBean(beanId: Long?) {
+        _state.update { it.copy(selectedBeanId = beanId) }
+        viewModelScope.launch { loadReminder() }
+    }
+
+    fun dismissReminder() = _state.update { it.copy(reminderDismissed = true) }
+
+    /** Ao salvar: escolher um grão preenche o campo "café". */
+    fun selectReviewBean(bean: Bean?) = _state.update { s ->
+        s.copy(
+            selectedBeanId = bean?.id,
+            form = if (bean != null) s.form.copy(coffee = bean.name) else s.form,
+            errors = emptyList(),
+        )
+    }
+
+    fun setLiked(text: String) = _state.update { it.copy(liked = text) }
+    fun setChange(text: String) = _state.update { it.copy(change = text) }
+
+    fun clearPlan() {
+        calc?.clearPlan()
     }
 
     private val elapsedSeconds: Int get() = (_elapsedMs.value / 1000).toInt()
@@ -122,7 +207,7 @@ class BrewViewModel(private val repo: CoffeeRepository, private val recipeId: Lo
                 CoffeeForm(
                     name = recipe.name,
                     method = recipe.method,
-                    coffee = recipe.coffee,
+                    coffee = s.selectedBean?.name ?: recipe.coffee,
                     grinder = recipe.grinder,
                     grindSetting = recipe.grindSetting,
                     doseText = recipe.doseGrams?.let(::formatNumber).orEmpty(),
@@ -136,10 +221,11 @@ class BrewViewModel(private val repo: CoffeeRepository, private val recipeId: Lo
                 CoffeeForm(
                     name = "${s.method.label} – preparo livre",
                     method = s.method,
-                    coffee = last?.coffee.orEmpty(),
+                    coffee = s.selectedBean?.name ?: last?.coffee.orEmpty(),
                     grinder = last?.grinder.orEmpty(),
                     grindSetting = last?.grindSetting.orEmpty(),
-                    doseText = last?.doseGrams?.let(::formatNumber).orEmpty(),
+                    // A dose da calculadora, se a pessoa veio de lá; senão, a do último preparo.
+                    doseText = (s.plan?.coffeeGrams ?: last?.doseGrams)?.let(::formatNumber).orEmpty(),
                     pours = s.pourMarks.map { PourInput(formatDuration(it), "") }.ifEmpty { listOf(PourInput("0:00", "")) },
                     waterTempText = last?.waterTempC?.toString().orEmpty(),
                     timeText = formatDuration(total),
@@ -162,11 +248,23 @@ class BrewViewModel(private val repo: CoffeeRepository, private val recipeId: Lo
                 saveAsRecipe = false,
                 errors = emptyList(),
                 savedBrewId = null,
+                liked = "",
+                change = "",
             )
         }
+        // O lembrete pode ter mudado com o preparo que acabou de ser salvo.
+        viewModelScope.launch { loadReminder() }
     }
 
-    fun onFormChange(form: CoffeeForm) = _state.update { it.copy(form = form, errors = emptyList()) }
+    fun onFormChange(form: CoffeeForm) = _state.update { s ->
+        // Digitar o nome de outro café desfaz a escolha do grão (ou escolhe o grão com aquele nome).
+        val beanId = if (form.coffee == s.form.coffee) {
+            s.selectedBeanId
+        } else {
+            s.beans.firstOrNull { it.name.equals(form.coffee.trim(), ignoreCase = true) }?.id
+        }
+        s.copy(form = form, errors = emptyList(), selectedBeanId = beanId)
+    }
 
     fun setSaveAsRecipe(value: Boolean) = _state.update { it.copy(saveAsRecipe = value, errors = emptyList()) }
 
@@ -195,6 +293,8 @@ class BrewViewModel(private val repo: CoffeeRepository, private val recipeId: Lo
         )
         viewModelScope.launch {
             val brewId = repo.saveBrew(brew)
+            journal?.saveNote(brew, brewId, s.selectedBeanId, s.liked, s.change)
+            if (!s.isGuided) calc?.clearPlan()
             if (s.saveAsRecipe) {
                 repo.saveRecipe(
                     Recipe(

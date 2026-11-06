@@ -56,7 +56,8 @@ import com.heitoranglada.coffeeapp.ui.components.Sheet
 import com.heitoranglada.coffeeapp.ui.components.bouncyClick
 import com.heitoranglada.coffeeapp.ui.components.enterCascade
 import com.heitoranglada.coffeeapp.ui.components.pourColor
-import com.heitoranglada.coffeeapp.ui.repoViewModelFactory
+import com.heitoranglada.coffeeapp.ui.appViewModelFactory
+import com.heitoranglada.coffeeapp.ui.journal.BrewDiary
 import com.heitoranglada.coffeeapp.ui.theme.Bloom
 import com.heitoranglada.coffeeapp.ui.theme.BloomType
 import com.heitoranglada.coffeeapp.ui.theme.palette
@@ -67,12 +68,15 @@ fun BrewDetailScreen(
     onBack: () -> Unit,
     onSaveAsRecipe: (Long) -> Unit,
     onBrewAgain: (Long) -> Unit,
+    onOpenBean: (Long) -> Unit = {},
     vm: BrewDetailViewModel = viewModel(
         key = "brew-detail-$brewId",
-        factory = repoViewModelFactory { BrewDetailViewModel(it, brewId) },
+        factory = appViewModelFactory { BrewDetailViewModel(it.repository, brewId, it.journal) },
     ),
 ) {
     val brew by vm.brew.collectAsStateWithLifecycle()
+    val note by vm.note.collectAsStateWithLifecycle()
+    val bean by vm.bean.collectAsStateWithLifecycle()
     val recipe by vm.recipe.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf(false) }
     val b = brew
@@ -136,6 +140,7 @@ fun BrewDetailScreen(
                     modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Bloom.Sand).padding(16.dp),
                 )
             }
+            BrewDiary(note, bean, onOpenBean)
             val r = recipe
             if (r != null) {
                 BigPillButton(

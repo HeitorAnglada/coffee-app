@@ -4,6 +4,8 @@ import android.content.Context
 import com.heitoranglada.coffeeapp.domain.BrewMethod
 import com.heitoranglada.coffeeapp.domain.Pour
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 
 /** Ponto único de acesso aos dados locais (tudo fica no aparelho). */
 class CoffeeRepository(private val db: CoffeeDatabase) {
@@ -32,7 +34,11 @@ class CoffeeRepository(private val db: CoffeeDatabase) {
     suspend fun saveBrew(brew: Brew): Long = brews.insert(brew)
     suspend fun deleteBrew(brew: Brew) = brews.delete(brew)
 
-    fun observeCoffees(): Flow<List<String>> = brews.observeCoffees()
+    /** Outros nomes de café para sugerir (os grãos do diário). */
+    var extraCoffees: Flow<List<String>> = flowOf(emptyList())
+
+    fun observeCoffees(): Flow<List<String>> =
+        combine(brews.observeCoffees(), extraCoffees) { used, extra -> (extra + used).distinctBy { it.lowercase() } }
     fun observeGrinders(): Flow<List<String>> = brews.observeGrinders()
 
     /** Na primeira abertura, cria receitas-modelo para quem está começando. */
