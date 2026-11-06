@@ -342,7 +342,9 @@ fun MethodTiles(selected: BrewMethod, onSelect: (BrewMethod) -> Unit) {
         BrewMethod.entries.forEach { m ->
             val p = m.palette
             val on = m == selected
-            val ring by animateDpAsState(if (on) 3.dp else 0.dp, spring(dampingRatio = 0.5f), label = "ring")
+            // A mola passa do alvo; sem o limite, ao desmarcar a borda ficava negativa e o app fechava.
+            val ringAnim by animateDpAsState(if (on) 3.dp else 0.dp, spring(dampingRatio = 0.5f), label = "ring")
+            val ring = ringAnim.coerceAtLeast(0.dp)
             val lift by animateFloatAsState(if (on) 1f else 0.94f, spring(dampingRatio = 0.5f), label = "lift")
             Box(
                 Modifier
