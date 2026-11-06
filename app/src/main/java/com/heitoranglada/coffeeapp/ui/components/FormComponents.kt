@@ -27,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -150,6 +151,15 @@ fun PoursEditor(pours: List<PourInput>, onChange: (List<PourInput>) -> Unit, dos
                     onValueChange = { v -> onChange(pours.toMutableList().also { it[index] = pour.copy(gramsText = v) }) },
                     label = { Text("Água") },
                     suffix = { Text("g") },
+                    // Destaca em terracota o que ainda falta preencher (ex.: após o preparo livre).
+                    colors = if (pour.gramsText.isBlank()) {
+                        OutlinedTextFieldDefaults.colors(
+                            unfocusedBorderColor = MaterialTheme.colorScheme.secondary,
+                            unfocusedLabelColor = MaterialTheme.colorScheme.secondary,
+                        )
+                    } else {
+                        OutlinedTextFieldDefaults.colors()
+                    },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.weight(1f),

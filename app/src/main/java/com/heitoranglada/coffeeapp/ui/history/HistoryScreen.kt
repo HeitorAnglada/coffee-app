@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,6 +40,7 @@ import com.heitoranglada.coffeeapp.domain.formatRatio
 import com.heitoranglada.coffeeapp.ui.components.BloomAnimation
 import com.heitoranglada.coffeeapp.ui.components.GrinderAnimation
 import com.heitoranglada.coffeeapp.ui.components.RatingBar
+import com.heitoranglada.coffeeapp.ui.components.enterCascade
 import com.heitoranglada.coffeeapp.ui.components.iconRes
 import com.heitoranglada.coffeeapp.ui.repoViewModelFactory
 
@@ -72,17 +73,19 @@ fun HistoryScreen(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding() + 8.dp, bottom = padding.calculateBottomPadding() + 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                items(list, key = { it.id }) { brew -> BrewCard(brew) { onOpenBrew(brew.id) } }
+                itemsIndexed(list, key = { _, it -> it.id }) { index, brew ->
+                    BrewCard(brew, Modifier.enterCascade(index)) { onOpenBrew(brew.id) }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun BrewCard(brew: Brew, onClick: () -> Unit) {
+private fun BrewCard(brew: Brew, modifier: Modifier, onClick: () -> Unit) {
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {

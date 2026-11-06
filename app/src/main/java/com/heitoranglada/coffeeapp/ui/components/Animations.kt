@@ -22,12 +22,14 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -48,6 +50,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.heitoranglada.coffeeapp.ui.theme.Bloom
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /*
@@ -144,7 +147,7 @@ private val domePath by lazy { svgPath("M28 46 Q50 18 72 46 Z") }
 
 /** O café "florescendo" no coador: a cúpula incha e solta bolhas de CO₂. */
 @Composable
-fun BloomAnimation(modifier: Modifier = Modifier, lineColor: Color = Bloom.Green) {
+fun BloomAnimation(modifier: Modifier = Modifier, lineColor: Color = Bloom.Green, domeColor: Color = Bloom.Terracotta) {
     val reduced = rememberReducedMotion()
     val transition = rememberInfiniteTransition(label = "bloom")
     val domeAnim by transition.animateFloat(
@@ -168,7 +171,7 @@ fun BloomAnimation(modifier: Modifier = Modifier, lineColor: Color = Bloom.Green
     Canvas(modifier) {
         viewport100 {
             withTransform({ scale(1f, dome, pivot = Offset(50f, 46f)) }) {
-                drawPath(domePath, Bloom.Terracotta)
+                drawPath(domePath, domeColor)
             }
             if (!reduced) {
                 val spots = listOf(Triple(42f, 40f, 1.8f), Triple(53f, 36f, 1.4f), Triple(60f, 41f, 1.1f), Triple(47f, 34f, 1.2f))
@@ -179,7 +182,7 @@ fun BloomAnimation(modifier: Modifier = Modifier, lineColor: Color = Bloom.Green
                         t > 0.8f -> (1f - t) / 0.2f
                         else -> 1f
                     } * dome.coerceIn(0f, 1f)
-                    drawCircle(if (i == 3) Bloom.Terracotta else Bloom.Paper, r, Offset(x, y - 26f * t), alpha = alpha)
+                    drawCircle(if (i == 3) domeColor else Bloom.Paper, r, Offset(x, y - 26f * t), alpha = alpha)
                 }
             }
             drawPath(conePath, lineColor, style = line(3.2f))
@@ -361,5 +364,24 @@ fun PulseButton(
                 .graphicsLayer { scaleX = pressScale; scaleY = pressScale },
             content = content,
         )
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Entrada em cascata
+
+/** Cartões de lista entram subindo e aparecendo, um pouco depois do anterior. */
+fun Modifier.enterCascade(index: Int): Modifier = composed {
+    val reduced = rememberReducedMotion()
+    val progress = remember { Animatable(if (reduced || index > 8) 1f else 0f) }
+    LaunchedEffect(Unit) {
+        if (progress.value < 1f) {
+            delay(index * 70L)
+            progress.animateTo(1f, tween(380, easing = FastOutSlowInEasing))
+        }
+    }
+    graphicsLayer {
+        alpha = progress.value
+        translationY = (1f - progress.value) * 24.dp.toPx()
     }
 }

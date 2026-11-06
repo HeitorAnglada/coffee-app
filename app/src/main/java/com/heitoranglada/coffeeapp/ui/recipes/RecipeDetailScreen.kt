@@ -1,7 +1,10 @@
 package com.heitoranglada.coffeeapp.ui.recipes
 
 import com.heitoranglada.coffeeapp.data.waterGrams
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -29,6 +32,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,11 +43,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.heitoranglada.coffeeapp.ui.components.BloomAnimation
 import com.heitoranglada.coffeeapp.ui.components.InfoRow
 import com.heitoranglada.coffeeapp.ui.components.PourTable
 import com.heitoranglada.coffeeapp.ui.components.SectionCard
 import com.heitoranglada.coffeeapp.ui.components.SummaryRow
 import com.heitoranglada.coffeeapp.ui.repoViewModelFactory
+import com.heitoranglada.coffeeapp.ui.theme.Bloom
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,7 +69,12 @@ fun RecipeDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(recipe?.name ?: "Receita") },
+                title = {},
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                ),
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar") }
                 },
@@ -74,7 +85,7 @@ fun RecipeDetailScreen(
             )
         },
         bottomBar = {
-            Surface(tonalElevation = 3.dp) {
+            Surface(color = MaterialTheme.colorScheme.background) {
                 Button(
                     onClick = { onBrew(recipeId) },
                     enabled = recipe != null,
@@ -96,11 +107,28 @@ fun RecipeDetailScreen(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .verticalScroll(rememberScrollState()),
+        ) {
+            // Cabeçalho verde com o bloom animado.
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.primary)
+                    .padding(start = 20.dp, end = 20.dp, bottom = 20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                BloomAnimation(Modifier.size(76.dp), lineColor = Bloom.Paper, domeColor = Bloom.TerracottaLight)
+                Spacer(Modifier.width(14.dp))
+                Column {
+                    Text(r.method.label, style = MaterialTheme.typography.bodyMedium, color = Bloom.Paper.copy(alpha = 0.85f))
+                    Text(r.name, style = MaterialTheme.typography.headlineMedium, color = Bloom.Paper)
+                }
+            }
+        Column(
+            Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            SectionCard(r.method.label) {
+            SectionCard("Resumo") {
                 SummaryRow(r.doseGrams, r.waterGrams, r.targetTimeSeconds)
                 Text(r.method.tip, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -116,6 +144,7 @@ fun RecipeDetailScreen(
             if (r.notes.isNotBlank()) {
                 SectionCard("Notas") { Text(r.notes) }
             }
+        }
         }
     }
 

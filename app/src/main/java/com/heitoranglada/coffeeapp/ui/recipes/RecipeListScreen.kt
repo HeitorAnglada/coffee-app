@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.PlayArrow
@@ -23,7 +23,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -44,6 +44,8 @@ import com.heitoranglada.coffeeapp.domain.formatDuration
 import com.heitoranglada.coffeeapp.domain.formatGrams
 import com.heitoranglada.coffeeapp.domain.formatRatio
 import com.heitoranglada.coffeeapp.ui.components.GrinderAnimation
+import com.heitoranglada.coffeeapp.ui.components.LogoMark
+import com.heitoranglada.coffeeapp.ui.components.enterCascade
 import com.heitoranglada.coffeeapp.ui.components.iconRes
 import com.heitoranglada.coffeeapp.ui.repoViewModelFactory
 
@@ -57,10 +59,22 @@ fun RecipeListScreen(
 ) {
     val recipes by vm.recipes.collectAsStateWithLifecycle()
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Receitas") }) },
+        topBar = {
+            TopAppBar(
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        LogoMark(Modifier.size(32.dp))
+                        Spacer(Modifier.width(10.dp))
+                        Text("Receitas", style = MaterialTheme.typography.headlineSmall)
+                    }
+                },
+            )
+        },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onNewRecipe,
+                containerColor = MaterialTheme.colorScheme.secondary,
+                contentColor = MaterialTheme.colorScheme.onSecondary,
                 icon = { Icon(Icons.Filled.Add, contentDescription = null) },
                 text = { Text("Nova receita") },
             )
@@ -87,8 +101,8 @@ fun RecipeListScreen(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding() + 8.dp, bottom = padding.calculateBottomPadding() + 88.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                items(list, key = { it.id }) { recipe ->
-                    RecipeCard(recipe, onClick = { onOpenRecipe(recipe.id) }, onBrew = { onBrewRecipe(recipe.id) })
+                itemsIndexed(list, key = { _, it -> it.id }) { index, recipe ->
+                    RecipeCard(recipe, Modifier.enterCascade(index), onClick = { onOpenRecipe(recipe.id) }, onBrew = { onBrewRecipe(recipe.id) })
                 }
             }
         }
@@ -96,10 +110,10 @@ fun RecipeListScreen(
 }
 
 @Composable
-private fun RecipeCard(recipe: Recipe, onClick: () -> Unit, onBrew: () -> Unit) {
+private fun RecipeCard(recipe: Recipe, modifier: Modifier, onClick: () -> Unit, onBrew: () -> Unit) {
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -126,7 +140,7 @@ private fun RecipeCard(recipe: Recipe, onClick: () -> Unit, onBrew: () -> Unit) 
                     Text(recipe.coffee, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            FilledTonalIconButton(onClick = onBrew) {
+            FilledIconButton(onClick = onBrew, shape = MaterialTheme.shapes.medium) {
                 Icon(Icons.Filled.PlayArrow, contentDescription = "Preparar ${recipe.name}")
             }
         }
